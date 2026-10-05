@@ -9,7 +9,7 @@ API con Node.js + Express + PostgreSQL (Supabase). Prefijo de rutas: `/api/empre
 3. Copiar `.env.example` a `.env` y completar los datos de conexión (pedir a Paolo los de Supabase). **El `.env` nunca se sube.**
 4. `npm run dev`
 
-## Ya hecho (Persona 1 - Paolo)
+## 
 
 - `package.json` (ES Modules, script `dev` con `--watch`), `.gitignore`, `.env.example`
 - `database/empresas.sql` (tabla ya creada en Supabase)
@@ -20,7 +20,7 @@ API con Node.js + Express + PostgreSQL (Supabase). Prefijo de rutas: `/api/empre
 
 Cada uno trabaja en su rama (`git checkout -b feature/nombre`), hace PR a `main` y otro lo revisa.
 
-### Persona 2 - Servidor (`src/index.js`)
+### Servidor (`src/index.js`)
 
 - Línea 1: `import "dotenv/config"`.
 - Crear la app Express, usar `cors()` y `express.json()`.
@@ -28,7 +28,7 @@ Cada uno trabaja en su rama (`git checkout -b feature/nombre`), hace PR a `main`
 - Ruta 404 para rutas inexistentes **al final** (`res.status(404).json({ mensaje: "Ruta no encontrada" })`).
 - `app.listen(process.env.PORT)`.
 
-### Persona 3 - Rutas + lectura (GET)
+### Rutas + lectura (GET)
 
 - `src/routes/empresas.routes.js`: define las 5 rutas y las conecta a los controladores:
 
@@ -45,7 +45,7 @@ Cada uno trabaja en su rama (`git checkout -b feature/nombre`), hace PR a `main`
   - `obtenerEmpresa`: `WHERE id_empresa = $1` -> 200, o 404 si no existe.
 - Todo con `try/catch`, `async/await` y respuesta 500 en error.
 
-### Persona 4 - Escritura (POST, PUT, DELETE)
+### Escritura (POST, PUT, DELETE)
 
 En el mismo `src/controllers/empresas.controller.js`, agregar **debajo** de lo de Persona 3 (para evitar conflictos, esperar a que Persona 3 suba el archivo base):
 
@@ -59,7 +59,3 @@ En el mismo `src/controllers/empresas.controller.js`, agregar **debajo** de lo d
 - El id lo genera la base (SERIAL), nunca el cliente.
 - Las consultas con valores usan **parámetros** (`$1`, `$2`...), nunca concatenar texto.
 - Si el cuit está repetido (error `23505`), responder 400/409 con mensaje claro.
-
-## Prueba final (todos juntos)
-
-Probar los 5 endpoints con Postman o Thunder Client y reiniciar el servidor para comprobar que los datos siguen.
