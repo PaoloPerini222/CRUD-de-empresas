@@ -12,11 +12,12 @@ export const obtenerEmpresas = async (req, res) => {
 export const obtenerEmpresa = async (req, res) => {
     try {
         const id = Number(req.params.id);
+        if (!Number.isInteger(id)) return res.status(400).json({ mensaje: "El id debe ser un número entero" });
         const resultado = await pool.query(`
             Select * FROM empresas 
             WHERE id_empresa = $1`, [id]);
         if (resultado.rows.length === 0) {
-            res.status(404).json({ Mensaje: "Empresa no encontrada" })
+            return res.status(404).json({ mensaje: "Empresa no encontrada" })
         }
         res.json(resultado.rows[0]);
     } catch (error) {
@@ -42,6 +43,9 @@ export const crearEmpresa = async (req, res) => {
         };
         res.status(201).json(resultado.rows[0]);
     } catch (error) {
+        if (error.code === "23505") {
+            return res.status(409).json({ mensaje: "Ya existe una empresa con ese CUIT" })
+        }
         res.status(500).json({ mensaje: "Error al crear la empresa" })
     }
 }
@@ -49,6 +53,7 @@ export const crearEmpresa = async (req, res) => {
 export const editarEmpresa = async (req, res) => {
     try {
         const id = Number(req.params.id);
+        if (!Number.isInteger(id)) return res.status(400).json({ mensaje: "El id debe ser un número entero" });
         const { nombre, cuit, email, telefono, direccion } = req.body ?? {};
         if (!nombre?.trim() || !cuit?.trim()) {
             return res.status(400).json({ mensaje: "El nombre y cuit son obligatorios" })
@@ -66,6 +71,9 @@ export const editarEmpresa = async (req, res) => {
         };
         res.json(resultado.rows[0])
     } catch (error) {
+        if (error.code === "23505") {
+            return res.status(409).json({ mensaje: "Ya existe una empresa con ese CUIT" })
+        }
         res.status(500).json({ mensaje: "Error al editar la empresa" })
     }
 }
@@ -73,10 +81,11 @@ export const editarEmpresa = async (req, res) => {
 export const eliminarEmpresa = async (req, res) => {
     try {
         const id = Number(req.params.id);
+        if (!Number.isInteger(id)) return res.status(400).json({ mensaje: "El id debe ser un número entero" });
 
         const resultado = await pool.query(`DELETE FROM empresas WHERE id_empresa = $1 RETURNING *`, [id]);
         if (resultado.rows.length === 0) {
-            return res.status(404).json({ Mensaje: "Empresa no encontrada" })
+            return res.status(404).json({ mensaje: "Empresa no encontrada" })
         };
         res.json({ mensaje: "Empresa eliminada", empresa: resultado.rows[0] })
     } catch (error) {
