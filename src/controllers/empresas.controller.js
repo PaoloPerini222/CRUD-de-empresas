@@ -27,16 +27,19 @@ export const obtenerEmpresa = async (req, res) => {
 
 export const crearEmpresa = async (req, res) => {
     try {
-        const { nombre, cuit, email, telefono, direccion } = req.body ?? {};
+        const { nombre, cuit, email, telefono, direccion, activo } = req.body ?? {};
         if (!nombre?.trim() || !cuit?.trim()) {
             return res.status(400).json({ mensaje: "El nombre y cuit son obligatorios" })
         }
+        if (activo !== undefined && typeof activo !== "boolean") {
+            return res.status(400).json({ mensaje: "activo debe ser true o false" })
+        }
 
         const resultado = await pool.query(`
-            INSERT INTO empresas(nombre, cuit, email, telefono, direccion) 
-            VALUES($1, $2, $3, $4, $5) 
+            INSERT INTO empresas(nombre, cuit, email, telefono, direccion, activo) 
+            VALUES($1, $2, $3, $4, $5, COALESCE($6, TRUE)) 
             RETURNING *`,
-            [nombre, cuit, email ?? null, telefono ?? null, direccion ?? null]
+            [nombre, cuit, email ?? null, telefono ?? null, direccion ?? null, activo ?? null]
         );
         if (resultado.rows.length === 0) {
             return res.status(404).json({ mensaje: "Empresa no encontrada" });
@@ -54,17 +57,21 @@ export const editarEmpresa = async (req, res) => {
     try {
         const id = Number(req.params.id);
         if (!Number.isInteger(id)) return res.status(400).json({ mensaje: "El id debe ser un número entero" });
-        const { nombre, cuit, email, telefono, direccion } = req.body ?? {};
+        const { nombre, cuit, email, telefono, direccion, activo } = req.body ?? {};
         if (!nombre?.trim() || !cuit?.trim()) {
             return res.status(400).json({ mensaje: "El nombre y cuit son obligatorios" })
         };
+        if (activo !== undefined && typeof activo !== "boolean") {
+            return res.status(400).json({ mensaje: "activo debe ser true o false" })
+        }
 
         const resultado = await pool.query(`
             UPDATE empresas
-            SET nombre = $1, cuit = $2, email = $3, telefono = $4, direccion = $5
-            WHERE id_empresa = $6
+            SET nombre = $1, cuit = $2, email = $3, telefono = $4, direccion = $5,
+                activo = COALESCE($6, activo)
+            WHERE id_empresa = $7
             RETURNING *`,
-            [nombre, cuit, email ?? null, telefono ?? null, direccion ?? null, id]
+            [nombre, cuit, email ?? null, telefono ?? null, direccion ?? null, activo ?? null, id]
     );
         if (resultado.rows.length === 0) {
             return res.status(404).json({ mensaje: "Empresa no encontrada" });

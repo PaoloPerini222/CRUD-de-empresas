@@ -3,7 +3,7 @@ import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
 import { cuitValido, emailValido, formatearCuit } from "../utils.js";
 
-const VACIO = { nombre: "", cuit: "", email: "", telefono: "", direccion: "" };
+const VACIO = { nombre: "", cuit: "", email: "", telefono: "", direccion: "", activo: true };
 
 export default function EmpresaForm({ empresa, empresas, onGuardar, onCerrar }) {
   const editando = Boolean(empresa);
@@ -15,6 +15,7 @@ export default function EmpresaForm({ empresa, empresas, onGuardar, onCerrar }) 
           email: empresa.email ?? "",
           telefono: empresa.telefono ?? "",
           direccion: empresa.direccion ?? "",
+          activo: empresa.activo,
         }
       : VACIO
   );
@@ -57,6 +58,7 @@ export default function EmpresaForm({ empresa, empresas, onGuardar, onCerrar }) 
         email: datos.email.trim() || null,
         telefono: datos.telefono.trim() || null,
         direccion: datos.direccion.trim() || null,
+        activo: datos.activo,
       });
     } catch (err) {
       setErrorServidor(err.message);
@@ -118,6 +120,20 @@ export default function EmpresaForm({ empresa, empresas, onGuardar, onCerrar }) 
             {campo("direccion", "Dirección", "pin", { max: 200, placeholder: "Av. Colón 1200, Nueva Córdoba", ancho: true })}
           </div>
         </fieldset>
+
+        <label className={`interruptor ${datos.activo ? "on" : ""}`}>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={datos.activo}
+            onChange={(e) => setDatos((d) => ({ ...d, activo: e.target.checked }))}
+          />
+          <span className="interruptor-pista"><span className="interruptor-perilla" /></span>
+          <span className="interruptor-texto">
+            <b>{datos.activo ? "Activo" : "Inactivo"}</b>
+            <small>{datos.activo ? "Aparece como disponible para eventos." : "Queda en la lista pero marcado como inactivo."}</small>
+          </span>
+        </label>
 
         {errorServidor && (
           <div className="alerta" role="alert">
