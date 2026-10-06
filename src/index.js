@@ -6,7 +6,9 @@ import empresasRoutes from "./routes/empresas.routes.js"
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// FRONTEND_URL acepta varios orígenes separados por coma; si no está definida, CORS queda abierto
+const origenes = process.env.FRONTEND_URL?.split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
+app.use(cors(origenes?.length ? { origin: origenes } : undefined));
 app.use(express.json());
 
 app.use("/api/empresas", empresasRoutes);

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Modal from "./Modal.jsx";
+import Icon from "./Icon.jsx";
 
 export default function ConfirmarEliminar({ empresa, onConfirmar, onCerrar }) {
   const [eliminando, setEliminando] = useState(false);
@@ -17,15 +18,20 @@ export default function ConfirmarEliminar({ empresa, onConfirmar, onCerrar }) {
   };
 
   return (
-    <Modal titulo="Eliminar empresa" onCerrar={onCerrar}>
-      <p className="texto-confirmar">
-        ¿Seguro que querés eliminar <b>{empresa.nombre}</b> (CUIT {empresa.cuit})? Esta acción no se puede deshacer.
-      </p>
-      {error && <div className="alerta error" role="alert">{error}</div>}
+    <Modal titulo="¿Eliminar este lugar?" subtitulo="Esta acción no se puede deshacer." icono="trash" tono="rojo" onCerrar={onCerrar}>
+      <div className="resumen-eliminar">
+        <b>{empresa.nombre}</b>
+        <span>CUIT {empresa.cuit}</span>
+      </div>
+      {error && (
+        <div className="alerta" role="alert">
+          <Icon name="alert" size={16} /> {error}
+        </div>
+      )}
       <div className="acciones-modal">
         <button className="btn" onClick={onCerrar}>Cancelar</button>
         <button className="btn peligro" onClick={confirmar} disabled={eliminando}>
-          {eliminando ? "Eliminando…" : "Eliminar"}
+          {eliminando ? "Eliminando…" : "Sí, eliminar"}
         </button>
       </div>
     </Modal>
