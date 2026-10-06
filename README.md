@@ -59,3 +59,15 @@ En el mismo `src/controllers/empresas.controller.js`, agregar **debajo** de lo d
 - El id lo genera la base (SERIAL), nunca el cliente.
 - Las consultas con valores usan **parámetros** (`$1`, `$2`...), nunca concatenar texto.
 - Si el cuit está repetido (error `23505`), responder 400/409 con mensaje claro.
+
+## Frontend (React + Vite)
+
+Carpeta `frontend/`: listado con búsqueda y orden, alta, edición y baja de empresas (validación de CUIT/email, diseño responsive).
+
+```bash
+cd frontend
+npm install
+npm run dev      # http://localhost:5173 (el backend tiene que estar en el puerto 3000)
+```
+
+En desarrollo Vite reenvía `/api` al backend (`VITE_BACKEND_URL` para cambiar el destino). En producción, definir `VITE_API_URL` (ver `frontend/.env.example`).
