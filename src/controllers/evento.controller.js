@@ -1,4 +1,4 @@
-import * as service from "../services/evento.service.js";
+import pool from "../data/db.js";
 
 export const obtenerEventos = async (req, res) => {};
 

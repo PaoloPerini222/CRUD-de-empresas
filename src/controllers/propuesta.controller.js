@@ -1,4 +1,4 @@
-import * as service from "../services/propuesta.service.js";
+import pool from "../data/db.js";
 
 export const obtenerPropuestas = async (req, res) => {};
 

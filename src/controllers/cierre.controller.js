@@ -1,4 +1,4 @@
-import * as service from "../services/cierre.service.js";
+import pool from "../data/db.js";
 
 export const obtenerCierres = async (req, res) => {};
 
