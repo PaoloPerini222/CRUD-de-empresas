@@ -1,4 +1,4 @@
-import * as repository from "../data/cambio-evento.repository.js";
+import pool from "../data/db.js";
 
 export async function obtenerCambiosEvento() {}
 

@@ -1,4 +1,4 @@
-import * as repository from "../data/cliente.repository.js";
+import pool from "../data/db.js";
 
 export async function obtenerClientes() {}
 

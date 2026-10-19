@@ -1,4 +1,4 @@
-import * as repository from "../data/aviso-proveedor-cancelacion.repository.js";
+import pool from "../data/db.js";
 
 export async function obtenerAvisosProveedorCancelacion() {}
 

@@ -1,4 +1,4 @@
-import * as repository from "../data/rol.repository.js";
+import pool from "../data/db.js";
 
 export async function obtenerRoles() {}
 
