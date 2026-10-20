@@ -17,3 +17,5 @@ database
 coverage
 dist
 build
+front
+rebuild.sh
