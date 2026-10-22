@@ -1,3 +1,4 @@
+import Estado from "../components/Estado.jsx";
 import PaginaCrud from "../components/PaginaCrud.jsx";
 import { propuestasApi } from "../api/propuestas.js";
 import { etiqueta, fechaCorta, moneda } from "../utils/formato.js";
@@ -26,7 +27,7 @@ const config = {
     { titulo: "Total", render: (p) => moneda(p.total) },
     {
       titulo: "Estado",
-      render: (p) => <span className="chip" style={{ "--c": colorEstado[p.estado] }}>{etiqueta(p.estado)}</span>,
+      render: (p) => <Estado estado={p.estado} color={colorEstado[p.estado]} />,
     },
   ],
   campos: [

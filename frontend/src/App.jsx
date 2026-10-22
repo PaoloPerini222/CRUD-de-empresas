@@ -9,10 +9,19 @@ import Eventos from "./pages/Eventos.jsx";
 import Landing from "./pages/Landing.jsx";
 import Propuestas from "./pages/Propuestas.jsx";
 import Tareas from "./pages/Tareas.jsx";
+import Splash from "./components/Splash.jsx";
 
+// Mapa de rutas de toda la app.
+//   Públicas:   /  /login  /registro  /evento/:token (enlace que abre el cliente)
+//   Privadas:   /eventos /clientes /empresas /propuestas /tareas
+//               Van dentro de RutaProtegida (exige sesión) y de Layout (sidebar + barra móvil).
+//   Cualquier otra URL vuelve a la landing.
+// <Splash /> es la pantalla que aparece al cambiar de modo claro/oscuro (siempre montado, se muestra por evento).
 export default function App() {
   return (
-    <Routes>
+    <>
+      <Splash />
+      <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Acceso modo="login" />} />
       <Route path="/registro" element={<Acceso modo="registro" />} />
@@ -33,6 +42,7 @@ export default function App() {
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }

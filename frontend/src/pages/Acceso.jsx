@@ -1,36 +1,35 @@
+import { ArrowLeftOutlined, LockOutlined, MailOutlined, UserOutlined } from "@ant-design/icons";
+import { Alert, Button, Form, Input, Segmented } from "antd";
 import { useEffect, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
+import BotonTema from "../components/BotonTema.jsx";
 import Logo from "../components/Logo.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { mensajeError } from "../services/api.js";
 import { registrar } from "../services/authService.js";
 
 // Login y registro comparten pantalla: modo "login" o "registro" según la ruta.
+// El formulario es de Ant Design (Form): valida los campos antes de llamar a onFinish.
 export default function Acceso({ modo }) {
   const esLogin = modo === "login";
   const { usuario, ingresar } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ nombre: "", email: "", password: "" });
   const [error, setError] = useState("");
   const [enviando, setEnviando] = useState(false);
 
+  // Al pasar de login a registro (o al revés) se limpia el error anterior.
   useEffect(() => setError(""), [modo]);
 
+  // Si ya hay sesión no tiene sentido ver esta pantalla.
   if (usuario) return <Navigate to="/eventos" replace />;
 
-  const cambiar = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-
-  const enviar = async (e) => {
-    e.preventDefault();
+  // valores = { nombre?, email, password } ya validados por antd.
+  const enviar = async (valores) => {
     setError("");
     setEnviando(true);
     try {
-      if (esLogin) {
-        await ingresar(form.email, form.password);
-      } else {
-        await registrar(form);
-        await ingresar(form.email, form.password);
-      }
+      if (!esLogin) await registrar(valores);
+      await ingresar(valores.email, valores.password);
       navigate("/eventos");
     } catch (err) {
       setError(mensajeError(err, esLogin ? "Error al iniciar sesión" : "Error al crear la cuenta"));
@@ -43,7 +42,10 @@ export default function Acceso({ modo }) {
       <div className="auth-art">
         <div className="art-top">
           <Logo />
-          <Link to="/" className="back">← Volver al inicio</Link>
+          <Button shape="round" icon={<ArrowLeftOutlined />} onClick={() => navigate("/")}>
+            Volver al inicio
+          </Button>
+          <BotonTema />
         </div>
         {esLogin ? (
           <h2 key="l">Volvé<br /><span style={{ color: "var(--pink)" }}>a la pista.</span></h2>
@@ -52,45 +54,64 @@ export default function Acceso({ modo }) {
         )}
       </div>
 
-      <form className="auth-form" onSubmit={enviar}>
-        <div className="tabs-seg">
-          <Link to="/login" className={esLogin ? "on" : ""}>Ingresar</Link>
-          <Link to="/registro" className={esLogin ? "" : "on"}>Crear cuenta</Link>
-        </div>
+      <div className="auth-form">
+        {/* Cambia entre las rutas /login y /registro. */}
+        <Segmented
+          size="large"
+          value={modo}
+          onChange={(valor) => navigate(valor === "login" ? "/login" : "/registro")}
+          options={[
+            { label: "Ingresar", value: "login" },
+            { label: "Crear cuenta", value: "registro" },
+          ]}
+        />
 
-        <div className="swap" key={modo}>
+        {/* key={modo}: reinicia el formulario y su animación al cambiar de modo. */}
+        <Form key={modo} className="swap" layout="vertical" requiredMark={false} size="large" onFinish={enviar} disabled={enviando}>
           <div>
             <h1>{esLogin ? "Ingresá a tu cuenta" : "Creá tu cuenta"}</h1>
             {esLogin && <p className="lead">Usá el email con el que te registraste.</p>}
           </div>
 
           {!esLogin && (
-            <div className="field">
-              <label htmlFor="nombre">Nombre</label>
-              <input id="nombre" name="nombre" value={form.nombre} onChange={cambiar} placeholder="Nombre Apellido" required />
-            </div>
+            <Form.Item name="nombre" label="Nombre" rules={[{ required: true, message: "Ingresá tu nombre" }]}>
+              <Input prefix={<UserOutlined />} placeholder="Nombre Apellido" autoComplete="name" />
+            </Form.Item>
           )}
-          <div className="field">
-            <label htmlFor="email">Email</label>
-            <input id="email" name="email" type="email" value={form.email} onChange={cambiar} placeholder="Usuario@gmail.com" required autoComplete="email" />
-          </div>
-          <div className="field">
-            <label htmlFor="password">Contraseña</label>
-            <input
-              id="password" name="password" type="password" value={form.password} onChange={cambiar}
-              placeholder={esLogin ? "**********" : "Mínimo 8 caracteres"} required minLength={esLogin ? undefined : 8}
+
+          <Form.Item
+            name="email"
+            label="Email"
+            rules={[
+              { required: true, message: "Ingresá tu email" },
+              { type: "email", message: "Ingresá un email válido" },
+            ]}
+          >
+            <Input prefix={<MailOutlined />} placeholder="usuario@gmail.com" autoComplete="email" />
+          </Form.Item>
+
+          <Form.Item
+            name="password"
+            label="Contraseña"
+            rules={[
+              { required: true, message: "Ingresá tu contraseña" },
+              ...(esLogin ? [] : [{ min: 8, message: "Mínimo 8 caracteres" }]),
+            ]}
+          >
+            <Input.Password
+              prefix={<LockOutlined />}
+              placeholder={esLogin ? "••••••••" : "Mínimo 8 caracteres"}
               autoComplete={esLogin ? "current-password" : "new-password"}
             />
-          </div>
+          </Form.Item>
 
-        </div>
+          {error && <Alert type="error" showIcon title={error} />}
 
-        {error && <div className="form-error">{error}</div>}
-
-        <button type="submit" className="btn btn--lg" disabled={enviando}>
-          {enviando ? "Un momento…" : esLogin ? "Ingresar" : "Crear cuenta"}
-        </button>
-      </form>
+          <Button type="primary" size="large" htmlType="submit" block loading={enviando}>
+            {esLogin ? "Ingresar" : "Crear cuenta"}
+          </Button>
+        </Form>
+      </div>
     </div>
   );
 }

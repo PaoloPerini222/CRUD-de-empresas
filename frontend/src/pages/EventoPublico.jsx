@@ -1,12 +1,17 @@
+import { CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
+import { Alert, Button, Card, Descriptions, Input, Result, Spin, Table, Typography } from "antd";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import BotonTema from "../components/BotonTema.jsx";
+import Estado from "../components/Estado.jsx";
 import Logo from "../components/Logo.jsx";
-import { etiqueta, fechaCorta, moneda } from "../utils/formato.js";
+import { fechaCorta, moneda } from "../utils/formato.js";
 
 // Página del enlace único de un evento: la abre el cliente, sin cuenta ni login.
 // Usa fetch (y no el cliente axios del panel) para no mandar el token de sesión ni cerrar sesión ante un error.
 const URL_API = `${import.meta.env.VITE_API_URL ?? "/api"}/publico/evento`;
 
+// Estado de la propuesta -> color de su etiqueta.
 const COLOR_ESTADO = {
   enviada: "var(--cyan)",
   en_negociacion: "var(--amber)",
@@ -14,6 +19,15 @@ const COLOR_ESTADO = {
   rechazada: "var(--red)",
 };
 
+// Columnas de la tabla de servicios de la propuesta.
+const COLUMNAS_SERVICIOS = [
+  { title: "Servicio", dataIndex: "nombre", key: "nombre", className: "col-principal" },
+  { title: "Cant.", dataIndex: "cantidad", key: "cantidad", align: "right" },
+  { title: "Unitario", dataIndex: "importe_unitario", key: "unitario", align: "right", render: moneda },
+  { title: "Subtotal", dataIndex: "subtotal", key: "subtotal", align: "right", render: moneda },
+];
+
+// GET (o la opción que se pase) a /publico/evento/:token + ruta. Lanza Error con el mensaje del back.
 async function pedir(token, ruta = "", opciones) {
   const respuesta = await fetch(`${URL_API}/${token}${ruta}`, opciones);
   const datos = await respuesta.json().catch(() => ({}));
@@ -23,9 +37,9 @@ async function pedir(token, ruta = "", opciones) {
 
 export default function EventoPublico() {
   const { token } = useParams();
-  const [datos, setDatos] = useState(null);
+  const [datos, setDatos] = useState(null); // { evento, propuesta } que devuelve el back
   const [error, setError] = useState("");
-  const [rechazando, setRechazando] = useState(false);
+  const [rechazando, setRechazando] = useState(false); // true cuando el cliente está escribiendo el motivo
   const [motivo, setMotivo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [errorRespuesta, setErrorRespuesta] = useState("");
@@ -37,6 +51,7 @@ export default function EventoPublico() {
 
   useEffect(() => { cargar(); }, [token]);
 
+  // decision: "aceptar" | "rechazar". Envía la respuesta del cliente y recarga la propuesta.
   const responder = async (decision) => {
     setEnviando(true);
     setErrorRespuesta("");
@@ -59,118 +74,143 @@ export default function EventoPublico() {
 
   return (
     <div className="pub">
-      <Logo />
+      <div className="pub-cabecera">
+        <Logo />
+        <BotonTema />
+      </div>
 
       {error && (
-        <div className="pub-cuerpo">
-          <span className="eyebrow">ENLACE NO DISPONIBLE</span>
-          <h1>No encontramos<br /><span>este evento.</span></h1>
-          <p className="muted">{error}. Pedile a la organizadora que te vuelva a enviar el enlace.</p>
-        </div>
+        <Result
+          status="404"
+          title="No encontramos este evento"
+          subTitle={`${error}. Pedile a la organizadora que te vuelva a enviar el enlace.`}
+        />
       )}
 
-      {!error && !datos && <p className="muted">Cargando…</p>}
+      {!error && !datos && (
+        <div className="pub-cargando">
+          <Spin size="large" tip="Cargando…" />
+        </div>
+      )}
 
       {evento && (
         <div className="pub-cuerpo">
           <span className="eyebrow">TU EVENTO{evento.cliente_nombre ? ` · ${evento.cliente_nombre.toUpperCase()}` : ""}</span>
           <h1>{evento.tipo_evento}</h1>
 
-          <div className="card pub-datos">
-            <div><em>Fecha</em>{evento.fecha ? fechaCorta(evento.fecha) : "A definir"}</div>
-            <div><em>Sede</em>{evento.sede_prevista ?? "A definir"}</div>
-            <div>
-              <em>Asistentes</em>
-              {evento.cant_asistentes_estimada ? Number(evento.cant_asistentes_estimada).toLocaleString("es-AR") : "A definir"}
-            </div>
-            {evento.organizador_nombre && <div><em>Organiza</em>{evento.organizador_nombre}</div>}
-          </div>
+          <Card variant="borderless" className="pub-datos">
+            <Descriptions
+              column={{ xs: 1, sm: 2, md: 4 }}
+              layout="vertical"
+              items={[
+                { key: "fecha", label: "Fecha", children: evento.fecha ? fechaCorta(evento.fecha) : "A definir" },
+                { key: "sede", label: "Sede", children: evento.sede_prevista ?? "A definir" },
+                {
+                  key: "asistentes",
+                  label: "Asistentes",
+                  children: evento.cant_asistentes_estimada ? Number(evento.cant_asistentes_estimada).toLocaleString("es-AR") : "A definir",
+                },
+                ...(evento.organizador_nombre ? [{ key: "organiza", label: "Organiza", children: evento.organizador_nombre }] : []),
+              ]}
+            />
+          </Card>
 
-          {evento.necesidades_preferencias && <p className="muted">{evento.necesidades_preferencias}</p>}
+          {evento.necesidades_preferencias && <Typography.Paragraph type="secondary">{evento.necesidades_preferencias}</Typography.Paragraph>}
 
           {!propuesta && (
-            <div className="card pub-espera">
-              <b>Todavía no hay una propuesta para vos.</b>
-              <p className="muted">Cuando la organizadora te la envíe, vas a poder verla y responderla desde esta misma página.</p>
-            </div>
+            <Card variant="borderless" className="pub-espera">
+              <Result
+                status="info"
+                title="Todavía no hay una propuesta para vos"
+                subTitle="Cuando la organizadora te la envíe, vas a poder verla y responderla desde esta misma página."
+              />
+            </Card>
           )}
 
           {propuesta && (
-            <div className="card pub-propuesta">
-              <div className="pub-propuesta-cab">
-                <b>Propuesta</b>
-                <span className="chip" style={{ "--c": COLOR_ESTADO[propuesta.estado] ?? "var(--muted)" }}>
-                  {etiqueta(propuesta.estado)}
-                </span>
-              </div>
+            <Card
+              variant="borderless"
+              className="pub-propuesta"
+              title="Propuesta"
+              extra={<Estado estado={propuesta.estado} color={COLOR_ESTADO[propuesta.estado]} />}
+            >
+              <Table
+                rowKey={(_, i) => i}
+                columns={COLUMNAS_SERVICIOS}
+                dataSource={propuesta.servicios}
+                pagination={false}
+                scroll={{ x: "max-content" }}
+                summary={() => (
+                  <Table.Summary.Row>
+                    <Table.Summary.Cell index={0} colSpan={3} align="right">
+                      <b>Total</b>
+                    </Table.Summary.Cell>
+                    <Table.Summary.Cell index={1} align="right">
+                      <b className="pub-total">{moneda(propuesta.total)}</b>
+                    </Table.Summary.Cell>
+                  </Table.Summary.Row>
+                )}
+              />
 
-              <table>
-                <thead>
-                  <tr>{["SERVICIO", "CANT.", "UNITARIO", "SUBTOTAL"].map((t) => <th key={t}>{t}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {propuesta.servicios.map((s, i) => (
-                    <tr key={i}>
-                      <td data-label="Servicio" className="first">{s.nombre}</td>
-                      <td data-label="Cant.">{s.cantidad}</td>
-                      <td data-label="Unitario">{moneda(s.importe_unitario)}</td>
-                      <td data-label="Subtotal">{moneda(s.subtotal)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div className="pub-total"><em>Total</em><b>{moneda(propuesta.total)}</b></div>
-
-              {propuesta.condiciones_acordadas && <p className="muted">{propuesta.condiciones_acordadas}</p>}
+              {propuesta.condiciones_acordadas && <Typography.Paragraph type="secondary">{propuesta.condiciones_acordadas}</Typography.Paragraph>}
               {propuesta.estado === "rechazada" && propuesta.motivo_rechazo && (
-                <p className="muted">Motivo del rechazo: {propuesta.motivo_rechazo}</p>
+                <Typography.Paragraph type="secondary">Motivo del rechazo: {propuesta.motivo_rechazo}</Typography.Paragraph>
               )}
 
               {propuesta.estado === "aceptada" && (
-                <div className="form-ok">Aceptaste esta propuesta{propuesta.fecha_respuesta ? ` el ${fechaCorta(propuesta.fecha_respuesta)}` : ""}. La organizadora se pone en contacto con vos.</div>
+                <Alert
+                  type="success"
+                  showIcon
+                  icon={<CheckCircleOutlined />}
+                  title={`Aceptaste esta propuesta${propuesta.fecha_respuesta ? ` el ${fechaCorta(propuesta.fecha_respuesta)}` : ""}. La organizadora se pone en contacto con vos.`}
+                />
               )}
               {propuesta.estado === "rechazada" && (
-                <div className="form-error">Rechazaste esta propuesta{propuesta.fecha_respuesta ? ` el ${fechaCorta(propuesta.fecha_respuesta)}` : ""}.</div>
+                <Alert
+                  type="error"
+                  showIcon
+                  icon={<CloseCircleOutlined />}
+                  title={`Rechazaste esta propuesta${propuesta.fecha_respuesta ? ` el ${fechaCorta(propuesta.fecha_respuesta)}` : ""}.`}
+                />
               )}
 
               {propuesta.puede_responder && (
                 <div className="pub-acciones">
-                  {errorRespuesta && <div className="form-error">{errorRespuesta}</div>}
+                  {errorRespuesta && <Alert type="error" showIcon title={errorRespuesta} />}
 
                   {!rechazando && (
                     <>
-                      <button className="btn" disabled={enviando} onClick={() => responder("aceptar")}>
-                        {enviando ? "Enviando…" : "Aceptar propuesta"}
-                      </button>
-                      <button className="btn btn--ghost" disabled={enviando} onClick={() => setRechazando(true)}>
+                      <Button type="primary" size="large" block loading={enviando} onClick={() => responder("aceptar")}>
+                        Aceptar propuesta
+                      </Button>
+                      <Button size="large" block disabled={enviando} onClick={() => setRechazando(true)}>
                         Rechazar
-                      </button>
+                      </Button>
                     </>
                   )}
 
                   {rechazando && (
                     <>
-                      <div className="field">
-                        <label htmlFor="motivo">¿Qué no te convenció? (opcional)</label>
-                        <textarea
-                          id="motivo"
-                          value={motivo}
-                          maxLength={500}
-                          onChange={(e) => setMotivo(e.target.value)}
-                        />
-                      </div>
-                      <button className="btn btn--danger" disabled={enviando} onClick={() => responder("rechazar")}>
-                        {enviando ? "Enviando…" : "Confirmar rechazo"}
-                      </button>
-                      <button className="btn btn--ghost" disabled={enviando} onClick={() => setRechazando(false)}>
+                      <label htmlFor="motivo">¿Qué no te convenció? (opcional)</label>
+                      <Input.TextArea
+                        id="motivo"
+                        value={motivo}
+                        maxLength={500}
+                        showCount
+                        autoSize={{ minRows: 3, maxRows: 6 }}
+                        onChange={(e) => setMotivo(e.target.value)}
+                      />
+                      <Button danger type="primary" size="large" block loading={enviando} onClick={() => responder("rechazar")}>
+                        Confirmar rechazo
+                      </Button>
+                      <Button size="large" block disabled={enviando} onClick={() => setRechazando(false)}>
                         Volver
-                      </button>
+                      </Button>
                     </>
                   )}
                 </div>
               )}
-            </div>
+            </Card>
           )}
         </div>
       )}

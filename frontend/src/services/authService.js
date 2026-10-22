@@ -1,3 +1,5 @@
+// Llamadas de autenticación al back. Devuelven directamente el cuerpo de la respuesta.
+// login -> { token, usuario } | registrar -> usuario nuevo | obtenerPerfil -> usuario actual
 import api from "./api";
 
 export const login = (email, password) =>
