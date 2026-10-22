@@ -8,7 +8,10 @@ services:
       POSTGRES_DB: eventos
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./database/empresas.sql:/docker-entrypoint-initdb.d/01-empresas.sql:ro
+      # Postgres ejecuta los .sql en orden alfabético (01_, 02_, ...) solo si el volumen está vacío
+      - ./database:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U eventos -d eventos"]
       interval: 5s
@@ -29,6 +32,8 @@ services:
       DB_PASSWORD: eventos
       DB_NAME: eventos
       DB_SSL: "false"
+      JWT_SECRET: ${JWT_SECRET:?Definí JWT_SECRET en el .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
       FRONTEND_URL: http://localhost:8081
     ports:
       - "3000:3000"
