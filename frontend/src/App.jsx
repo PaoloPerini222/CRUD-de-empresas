@@ -4,6 +4,7 @@ import RutaProtegida from "./components/RutaProtegida.jsx";
 import Acceso from "./pages/Acceso.jsx";
 import Clientes from "./pages/Clientes.jsx";
 import Empresas from "./pages/Empresas.jsx";
+import EventoPublico from "./pages/EventoPublico.jsx";
 import Eventos from "./pages/Eventos.jsx";
 import Landing from "./pages/Landing.jsx";
 import Propuestas from "./pages/Propuestas.jsx";
@@ -15,6 +16,7 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Acceso modo="login" />} />
       <Route path="/registro" element={<Acceso modo="registro" />} />
+      <Route path="/evento/:token" element={<EventoPublico />} />
 
       <Route
         element={

@@ -93,7 +93,9 @@ CREATE TABLE public.evento (
     estado character varying(20) NOT NULL DEFAULT 'recibida',
     id_organizador integer,
     estado_sede character varying(15) NOT NULL DEFAULT 'pendiente',
+    token_publico uuid NOT NULL DEFAULT gen_random_uuid(),
     CONSTRAINT evento_pkey PRIMARY KEY (id_evento),
+    CONSTRAINT evento_token_publico_key UNIQUE (token_publico),
     CONSTRAINT fk_evento_id_cliente_cliente FOREIGN KEY (id_cliente) REFERENCES public.cliente(id_cliente),
     CONSTRAINT evento_id_organizador_fkey FOREIGN KEY (id_organizador) REFERENCES public.personal(id_personal),
     CONSTRAINT chk_evento_estado CHECK (estado IN (

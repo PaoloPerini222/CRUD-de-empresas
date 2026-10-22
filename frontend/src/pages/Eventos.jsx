@@ -53,6 +53,7 @@ export default function Eventos() {
   const [busqueda, setBusqueda] = useState("");
   const [editando, setEditando] = useState(null);
   const [errorAccion, setErrorAccion] = useState("");
+  const [aviso, setAviso] = useState("");
 
   const hoy = hoyISO();
   const semana = useMemo(semanaActual, []);
@@ -101,6 +102,18 @@ export default function Eventos() {
     }
   };
 
+  // Enlace único del evento: el cliente lo abre sin cuenta para ver su propuesta y responderla.
+  const copiarLink = async (item) => {
+    const url = `${window.location.origin}/evento/${item.token_publico}`;
+    setErrorAccion("");
+    try {
+      await navigator.clipboard.writeText(url);
+      setAviso(`Link copiado: ${url}`);
+    } catch {
+      window.prompt("Copiá el link del evento", url);
+    }
+  };
+
   return (
     <main className="main">
       <Topbar busqueda={busqueda} onBusqueda={setBusqueda} placeholder="Buscar eventos…" />
@@ -114,6 +127,7 @@ export default function Eventos() {
       </div>
 
       {errorAccion && <div className="form-error">{errorAccion}</div>}
+      {aviso && <div className="form-ok">{aviso}</div>}
 
       <div className="dash">
         <div className="hero">
@@ -211,6 +225,7 @@ export default function Eventos() {
                   </td>
                   <td><Estado estado={e.estado} /></td>
                   <td className="actions">
+                    {e.token_publico && <button onClick={() => copiarLink(e)}>Link</button>}
                     <button onClick={() => setEditando(e)}>Editar</button>
                     <button className="del" onClick={() => borrar(e)}>Eliminar</button>
                   </td>
