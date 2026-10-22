@@ -9,4 +9,14 @@ import {
 
 const router = Router();
 
+router.get("/", obtenerEventos);
+
+router.get("/:id", obtenerEvento);
+
+router.post("/", crearEvento);
+
+router.put("/:id", editarEvento);
+
+router.delete("/:id", eliminarEvento);
+
 export default router;

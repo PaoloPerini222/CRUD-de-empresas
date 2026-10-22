@@ -1,11 +1,163 @@
 import pool from "../data/db.js";
 
-export const obtenerClientes = async (req, res) => {};
+const ID_MAXIMO = 2147483647;
+const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export const obtenerCliente = async (req, res) => {};
+const parseId = (valor) => {
+    if(typeof valor !== "string" || !/^\d+$/.test(valor)){
+        return null;
+    }
 
-export const crearCliente = async (req, res) => {};
+    const id = Number(valor);
+    if(id < 1 || id > ID_MAXIMO){
+        return null;
+    }
 
-export const editarCliente = async (req, res) => {};
+    return id;
+};
 
-export const eliminarCliente = async (req, res) => {};
+const validarCliente = (body) => {
+    const {nombre, email, telefono} = body ?? {};
+
+    if(typeof nombre !== "string" || !nombre.trim()){
+        return {error: "el nombre es obligatorio"};
+    }
+    if(typeof telefono !== "string" || !telefono.trim()){
+        return {error: "el telefono es obligatorio"};
+    }
+    if(email !== undefined && email !== null && typeof email !== "string"){
+        return {error: "el email no es valido"};
+    }
+
+    const nombreLimpio = nombre.trim();
+    const telefonoLimpio = telefono.trim();
+    const emailLimpio = email?.trim() || null;
+
+    if(nombreLimpio.length > 100){
+        return {error: "el nombre no puede superar los 100 caracteres"};
+    }
+    if(telefonoLimpio.length > 30){
+        return {error: "el telefono no puede superar los 30 caracteres"};
+    }
+    if(emailLimpio && (emailLimpio.length > 100 || !REGEX_EMAIL.test(emailLimpio))){
+        return {error: "el email no es valido"};
+    }
+
+    return {datos: {nombre: nombreLimpio, telefono: telefonoLimpio, email: emailLimpio}};
+};
+
+export const obtenerClientes = async (req, res) => {
+    try{
+        const clientes = await pool.query(`select * from cliente`);
+
+        res.json(clientes.rows);
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({mensaje: "no se pudieron obtener los clientes"});
+    }
+};
+
+export const obtenerCliente = async (req, res) => {
+    try{
+        const idCliente = parseId(req.params.id);
+        if(idCliente === null){
+            return res.status(400).json({mensaje: "el id del cliente no es valido"});
+        }
+
+        const unCliente = await pool.query(`select * from cliente where id_cliente = $1` , [idCliente]);
+
+        if(unCliente.rows.length === 0){
+            return res.status(404).json({mensaje: "ese cliente no existe"});
+        }
+
+        res.json(unCliente.rows[0]);
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({mensaje: "no se pudo obtener el cliente"});
+    }
+};
+
+export const crearCliente = async (req, res) => {
+    try{
+        const {error, datos} = validarCliente(req.body);
+        if(error){
+            return res.status(400).json({mensaje: error});
+        }
+
+        const nuevoCliente = await pool.query(
+            `insert into cliente (nombre, telefono, email) values ($1, $2, $3) returning *`,
+            [datos.nombre, datos.telefono, datos.email]
+        );
+
+        res.status(201).json(nuevoCliente.rows[0]);
+
+    } catch (error){
+        console.error(error);
+
+        res.status(500).json({mensaje: "no se pudo crear el cliente"});
+    }
+};
+
+export const editarCliente = async (req, res) => {
+    try{
+        const idCliente = parseId(req.params.id);
+        if(idCliente === null){
+            return res.status(400).json({mensaje: "el id del cliente no es valido"});
+        }
+
+        const actual = await pool.query(`select nombre, telefono, email from cliente where id_cliente = $1`, [idCliente]);
+        if(actual.rows.length === 0){
+            return res.status(404).json({mensaje: "ese cliente no existe"});
+        }
+
+        const {error, datos} = validarCliente({...actual.rows[0], ...req.body});
+        if(error){
+            return res.status(400).json({mensaje: error});
+        }
+
+        const clienteEditado = await pool.query(
+            `update cliente set nombre = $1, telefono = $2, email = $3 where id_cliente = $4 returning *`,
+            [datos.nombre, datos.telefono, datos.email, idCliente]
+        );
+
+        if(clienteEditado.rows.length === 0){
+            return res.status(404).json({mensaje: "ese cliente no existe"});
+        }
+
+        res.json(clienteEditado.rows[0]);
+
+    } catch(error){
+        console.error(error);
+
+        res.status(500).json({mensaje: "no se pudo editar el cliente"});
+    }
+};
+
+export const eliminarCliente = async (req, res) => {
+    try{
+        const idCliente = parseId(req.params.id);
+        if(idCliente === null){
+            return res.status(400).json({mensaje: "el id del cliente no es valido"});
+        }
+
+        const eliminar = await pool.query(`delete from cliente where id_cliente = $1 RETURNING *`, [idCliente]);
+
+        if(eliminar.rows.length === 0){
+            return res.status(404).json({mensaje: "ese cliente no existe"});
+        }
+
+        res.json({mensaje: "cliente eliminado", cliente: eliminar.rows[0]});
+    }catch(error){
+        console.error(error);
+
+        if(error.code === "23503"){
+            return res.status(409).json({mensaje: "no se puede eliminar, el cliente tiene eventos asociados"});
+        }
+
+        res.status(500).json({mensaje: "no se pudo eliminar el cliente"});
+    }
+};
