@@ -7,6 +7,7 @@ import clienteRoutes from "./routes/cliente.routes.js";
 import eventoRoutes from "./routes/evento.routes.js";
 import tareaRoutes from "./routes/tarea.routes.js";
 import propuestaRoutes from "./routes/propuesta.routes.js";
+import publicoRoutes from "./routes/publico.routes.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,6 +16,7 @@ app.use(cors({ origin: process.env.FRONTEND_URL }));
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
+app.use("/api/publico", publicoRoutes);
 
 app.use("/api/empresas", empresasRoutes);
 app.use("/api/clientes", clienteRoutes);
