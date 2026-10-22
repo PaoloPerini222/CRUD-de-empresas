@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import Estado from "../components/Estado.jsx";
 import PaginaCrud from "../components/PaginaCrud.jsx";
 import { tareasApi } from "../api/tareas.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -36,7 +37,7 @@ export default function Tareas() {
       },
       {
         titulo: "Estado",
-        render: (t) => <span className="chip" style={{ "--c": colorEstado[t.estado] }}>{etiqueta(t.estado)}</span>,
+        render: (t) => <Estado estado={t.estado} color={colorEstado[t.estado]} />,
       },
     ],
     campos: [

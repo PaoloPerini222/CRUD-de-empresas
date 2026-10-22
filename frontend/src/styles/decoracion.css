@@ -1,0 +1,239 @@
+/* Decoración que cambia con el tema (los archivos están en src/assets/):
+     modo claro  -> columnas.svg, greca.svg, sol.svg, luna.svg y pensador.webp (estilo griego y astrología)
+     modo oscuro -> lateral.svg (ramas y hojas colgando por los bordes), luna-nubes.svg, enredadera.svg y dosel.svg (splash)
+   Cada tema define sus imágenes en base.css con estas variables:
+     --arte      ilustración grande (hero de la landing y panel izquierdo del login)
+     --cenefa    franja que se repite (sidebar, cabecera del panel, separadores)
+     --follaje / --follaje-2 / --figura   capas fijas de fondo, ver más abajo
+   Acá solo se decide dónde se ponen; para cambiar un dibujo se cambia la variable. */
+
+/* ---------- Capas fijas de fondo (detrás de todo el contenido) ----------
+   body::before -> --follaje   (oscuro: ramas colgando de arriba | claro: sol, arriba a la derecha)
+   body::after  -> --follaje-2 (claro: luna, abajo a la izquierda | oscuro: nada)
+   html::after  -> --figura    (oscuro: luna entre nubes, arriba | claro: El Pensador, abajo a la derecha)
+   z-index: -2 queda detrás de -1; así el follaje cuelga por delante de la luna. */
+body::before,
+body::after,
+html::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  background-repeat: no-repeat;
+}
+
+body::before {
+  z-index: -1;
+  background-image: var(--follaje, none);
+}
+
+body::after {
+  z-index: -1;
+  background-image: var(--follaje-2, none);
+}
+
+html::after {
+  z-index: -2;
+  background-image: var(--figura, none);
+}
+
+/* --- Modo oscuro: follaje que cuelga por los bordes y luna entre nubes ---
+   Las franjas bajan hasta el fondo: arriba son densas y hacia abajo van quedando pocas hojas, más chicas
+   y más transparentes (máscara), así no molestan al contenido. El centro queda libre. */
+:root:not([data-theme="light"]) body::before,
+:root:not([data-theme="light"]) body::after {
+  top: 0;
+  width: min(34vw, 420px);
+  height: 100vh;
+  background-size: auto 100%;
+  background-position: top left;
+  opacity: .95;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 30%, rgba(0, 0, 0, .6) 65%, rgba(0, 0, 0, .35) 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 30%, rgba(0, 0, 0, .6) 65%, rgba(0, 0, 0, .35) 100%);
+}
+
+:root:not([data-theme="light"]) body::before {
+  left: 0;
+}
+
+:root:not([data-theme="light"]) body::after {
+  right: 0;
+  transform: scaleX(-1); /* la misma franja, espejada */
+}
+
+:root:not([data-theme="light"])::after {
+  top: 2vh;
+  right: 15vw;
+  width: min(52vw, 760px);
+  aspect-ratio: 900 / 560;
+  background-size: contain;
+  background-position: top right;
+  opacity: .96;
+}
+
+/* --- Modo claro: sol, luna y El Pensador --- */
+:root[data-theme="light"] body::before {
+  top: 0;
+  right: 0;
+  width: min(38vw, 520px);
+  aspect-ratio: 620 / 420;
+  background-size: contain;
+  background-position: top right;
+}
+
+:root[data-theme="light"] body::after {
+  bottom: 0;
+  left: 0;
+  width: min(40vw, 540px);
+  aspect-ratio: 620 / 420;
+  background-size: contain;
+  background-position: bottom left;
+  opacity: .7;
+}
+
+/* Foto: "El Pensador" de Rodin, The Metropolitan Museum of Art (Open Access, CC0), vía Wikimedia Commons.
+   Está recortada del fondo y teñida en tonos hueso para que se funda con el mármol. */
+:root[data-theme="light"]::after {
+  right: 2vw;
+  bottom: 0;
+  width: min(30vw, 460px);
+  aspect-ratio: 640 / 994;
+  background-size: contain;
+  background-position: center bottom;
+  opacity: .42;
+  filter: blur(.7px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
+}
+
+/* ---------- Columnas: rellenan el espacio vacío de la derecha / izquierda ---------- */
+.land-hero {
+  position: relative;
+}
+
+.land-hero::after {
+  content: "";
+  position: absolute;
+  right: 56px;
+  top: 40px;
+  width: min(40vw, 540px);
+  aspect-ratio: 1;
+  background: var(--arte) center / contain no-repeat;
+  opacity: .9;
+  pointer-events: none;
+}
+
+.land-title,
+.land-sub {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-art {
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-art::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(90%, 560px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -58%);
+  background: var(--arte) center / contain no-repeat;
+  opacity: .8;
+  pointer-events: none;
+}
+
+.auth-art > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Greca: cenefa decorativa ---------- */
+.lineup::before,
+.main::before,
+.land-foot::before,
+.pub::before {
+  content: "";
+  display: block;
+  height: 20px;
+  background: var(--cenefa) left center / auto 20px repeat-x;
+  opacity: .55;
+}
+
+.lineup::before {
+  margin-bottom: 32px;
+}
+
+.land-foot {
+  flex-wrap: wrap;
+}
+
+.land-foot::before {
+  flex: 0 0 100%;
+  margin-bottom: 20px;
+}
+
+.side::before {
+  content: "";
+  display: block;
+  height: 20px;
+  margin: -8px 0 0;
+  background: var(--cenefa) left center / auto 20px repeat-x;
+  opacity: .55;
+}
+
+@media (max-width: 960px) {
+  :root[data-theme="light"]::after {
+    width: 54vw;
+    opacity: .26;
+  }
+
+  :root[data-theme="light"] body::before {
+    width: 72vw;
+    opacity: .55;
+  }
+
+  :root[data-theme="light"] body::after {
+    width: 52vw;
+    opacity: .4;
+  }
+
+  :root:not([data-theme="light"]) body::before,
+  :root:not([data-theme="light"]) body::after {
+    width: 30vw;
+    opacity: .75;
+  }
+
+  :root:not([data-theme="light"])::after {
+    top: 8vh;
+    right: -4vw;
+    width: 92vw;
+  }
+
+  .land-hero::after {
+    right: -8px;
+    top: auto;
+    bottom: 16px;
+    width: 64vw;
+    opacity: .28;
+  }
+
+  .auth-art {
+    min-height: 260px;
+  }
+
+  .auth-art::before {
+    width: 60%;
+    top: 62%;
+    transform: translate(-50%, -50%);
+    opacity: .3;
+  }
+
+  .main::before {
+    height: 16px;
+    background-size: auto 16px;
+  }
+}

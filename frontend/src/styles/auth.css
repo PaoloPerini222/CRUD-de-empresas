@@ -1,0 +1,62 @@
+/* Pantalla de login y registro: panel izquierdo (.auth-art) y formulario (.auth-form). */
+
+/* ---------- Acceso (login / registro) ---------- */
+
+.auth {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.auth-art {
+  padding: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.auth-art h2 {
+  font: 700 clamp(40px, 5vw, 64px)/1.02 var(--display);
+  letter-spacing: -.03em;
+}
+
+.auth-form {
+  padding: 48px 96px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+}
+
+.auth-form h1 {
+  font: 700 30px var(--display);
+}
+
+.auth-form .lead {
+  margin-top: 10px;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+@media (max-width: 960px) {
+  .auth {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-art {
+    padding: 28px 24px;
+    gap: 40px;
+  }
+
+  .auth-form {
+    padding: 28px 24px 40px;
+  }
+}
+
+/* Teléfonos: la fila de arriba (logo, volver, tema) pasa a varias líneas en vez de apretarse. */
+@media (max-width: 600px) {
+  .art-top {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}
