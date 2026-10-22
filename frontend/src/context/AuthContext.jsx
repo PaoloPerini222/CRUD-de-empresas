@@ -1,8 +1,14 @@
 import { createContext, useContext, useState } from "react";
 import * as authService from "../services/authService";
 
+// Sesión global. Guarda el token y el usuario en localStorage para sobrevivir a recargas.
+//   usuario  -> datos del usuario logueado (o null)
+//   ingresar -> hace login y guarda la sesión
+//   salir    -> borra la sesión
+// Uso en cualquier componente: const { usuario, ingresar, salir } = useAuth();
 const AuthContext = createContext(null);
 
+// Lee el usuario guardado; si el JSON está roto devuelve null en vez de romper la app.
 function leerUsuario() {
   try {
     return JSON.parse(localStorage.getItem("usuario"));

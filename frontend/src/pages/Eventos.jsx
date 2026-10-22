@@ -1,11 +1,18 @@
+import { DeleteOutlined, EditOutlined, LinkOutlined, PlusOutlined } from "@ant-design/icons";
+import { Alert, App, Button, Card, Empty, Popconfirm, Segmented, Skeleton, Space, Table, Tooltip } from "antd";
 import { useMemo, useState } from "react";
+import { eventosApi } from "../api/eventos.js";
+import Estado from "../components/Estado.jsx";
 import FormModal from "../components/FormModal.jsx";
 import Topbar from "../components/Topbar.jsx";
-import { eventosApi } from "../api/eventos.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import useRecurso from "../hooks/useRecurso.js";
 import { diasHasta, etiqueta, fechaCorta, fechaLarga, hoyISO, soloFecha } from "../utils/formato.js";
 
+// Pantalla principal del panel: tablero con el próximo evento, la semana actual y la tabla de eventos.
+// No usa PaginaCrud porque tiene más cosas (filtros, calendario semanal, link público).
+
+// Estado del evento -> color de su etiqueta.
 const ESTADOS = {
   recibida: "var(--amber)",
   en_evaluacion: "var(--cyan)",
@@ -17,12 +24,16 @@ const ESTADOS = {
   realizado: "var(--muted)",
   cancelado: "var(--red)",
 };
+
+// Colores que se reparten entre eventos (barra de la tabla, día del calendario).
 const PALETA = ["var(--pink)", "var(--cyan)", "var(--violet)", "var(--lime)", "var(--amber)"];
 const colorDe = (e) => PALETA[e.id_evento % PALETA.length];
 
+// Un evento "cerrado" ya no cuenta como próximo; un "borrador" todavía no está confirmado.
 const CERRADOS = ["realizado", "cancelado", "rechazada"];
 const BORRADORES = ["recibida", "en_evaluacion", "propuesta_enviada"];
 
+// Pestañas de la tabla. test(evento, hoy) decide si el evento entra en esa pestaña.
 const FILTROS = [
   { id: "proximos", label: "Próximos", test: (e, hoy) => !CERRADOS.includes(e.estado) && !BORRADORES.includes(e.estado) && (!e.fecha || soloFecha(e.fecha) >= hoy) },
   { id: "borradores", label: "Borradores", test: (e) => BORRADORES.includes(e.estado) },
@@ -40,24 +51,18 @@ function semanaActual() {
   });
 }
 
-const Estado = ({ estado, className }) => (
-  <span className={`chip ${className ?? ""}`} style={{ "--c": ESTADOS[estado] ?? "var(--muted)" }}>
-    {etiqueta(estado)}
-  </span>
-);
-
 export default function Eventos() {
   const { usuario } = useAuth();
+  const { message } = App.useApp();
   const { items, cargando, error, recargar, guardar, eliminar } = useRecurso(eventosApi, "id_evento");
   const [filtro, setFiltro] = useState("proximos");
   const [busqueda, setBusqueda] = useState("");
-  const [editando, setEditando] = useState(null);
-  const [errorAccion, setErrorAccion] = useState("");
-  const [aviso, setAviso] = useState("");
+  const [editando, setEditando] = useState(null); // null | "nuevo" | evento
 
   const hoy = hoyISO();
   const semana = useMemo(semanaActual, []);
 
+  // Campos del formulario de alta/edición (el organizador por defecto es el usuario actual).
   const campos = useMemo(() => [
     { name: "tipo_evento", label: "Nombre / tipo de evento", required: true, full: true },
     { name: "id_cliente", label: "ID del cliente", type: "number", required: true, step: 1 },
@@ -76,6 +81,10 @@ export default function Eventos() {
     { name: "necesidades_preferencias", label: "Necesidades y preferencias", type: "textarea" },
   ], [usuario?.id_personal]);
 
+  // Cálculos de pantalla, de arriba hacia abajo:
+  //   lista     -> filas de la tabla (búsqueda + pestaña activa, ordenadas por fecha)
+  //   destacado -> próximo evento futuro, para la tarjeta grande
+  //   deLaSemana / colorPorDia -> eventos de esta semana, para el calendario
   const q = busqueda.trim().toLowerCase();
   const buscados = items.filter((e) => !q || `${e.tipo_evento} ${e.sede_prevista ?? ""}`.toLowerCase().includes(q));
   const lista = buscados
@@ -93,26 +102,78 @@ export default function Eventos() {
   const colorPorDia = Object.fromEntries(deLaSemana.map((e) => [soloFecha(e.fecha), colorDe(e)]));
 
   const borrar = async (item) => {
-    if (!window.confirm(`¿Eliminar "${item.tipo_evento}"?`)) return;
-    setErrorAccion("");
     try {
       await eliminar(item);
+      message.success("Evento eliminado");
     } catch (e) {
-      setErrorAccion(e.message);
+      message.error(e.message);
     }
   };
 
   // Enlace único del evento: el cliente lo abre sin cuenta para ver su propuesta y responderla.
   const copiarLink = async (item) => {
     const url = `${window.location.origin}/evento/${item.token_publico}`;
-    setErrorAccion("");
     try {
       await navigator.clipboard.writeText(url);
-      setAviso(`Link copiado: ${url}`);
+      message.success(`Link copiado: ${url}`);
     } catch {
       window.prompt("Copiá el link del evento", url);
     }
   };
+
+  const columnas = [
+    {
+      title: "Evento",
+      key: "evento",
+      className: "col-principal",
+      render: (_, e) => (
+        <span className="bar-name" style={{ "--c": colorDe(e) }}>
+          <i />
+          {e.tipo_evento}
+        </span>
+      ),
+    },
+    { title: "Fecha", key: "fecha", render: (_, e) => (e.fecha ? fechaCorta(e.fecha) : "Sin fecha") },
+    { title: "Sala", key: "sala", render: (_, e) => e.sede_prevista ?? "—" },
+    {
+      title: "Capacidad",
+      key: "capacidad",
+      render: (_, e) => (e.cant_asistentes_estimada != null ? Number(e.cant_asistentes_estimada).toLocaleString("es-AR") : "—"),
+    },
+    {
+      title: "Organiza",
+      key: "organiza",
+      render: (_, e) => (e.id_organizador == null ? "—" : e.id_organizador === usuario?.id_personal ? "Vos" : `Personal #${e.id_organizador}`),
+    },
+    { title: "Estado", key: "estado", render: (_, e) => <Estado estado={e.estado} color={ESTADOS[e.estado]} /> },
+    {
+      key: "acciones",
+      align: "right",
+      render: (_, e) => (
+        <Space size={4} wrap={false}>
+          {e.token_publico && (
+            <Tooltip title="Copiar el enlace para el cliente">
+              <Button type="text" icon={<LinkOutlined />} aria-label="Copiar enlace" onClick={() => copiarLink(e)} />
+            </Tooltip>
+          )}
+          <Tooltip title="Editar">
+            <Button type="text" icon={<EditOutlined />} aria-label="Editar" onClick={() => setEditando(e)} />
+          </Tooltip>
+          <Popconfirm
+            title={`¿Eliminar "${e.tipo_evento}"?`}
+            okText="Eliminar"
+            cancelText="Cancelar"
+            okButtonProps={{ danger: true }}
+            onConfirm={() => borrar(e)}
+          >
+            <Tooltip title="Eliminar">
+              <Button type="text" danger icon={<DeleteOutlined />} aria-label="Eliminar" />
+            </Tooltip>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <main className="main">
@@ -123,21 +184,21 @@ export default function Eventos() {
           <div className="eyebrow">{fechaLarga()}</div>
           <h1>Eventos</h1>
         </div>
-        <button className="btn" onClick={() => setEditando("nuevo")}>+ Nuevo evento</button>
+        <Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => setEditando("nuevo")}>
+          Nuevo evento
+        </Button>
       </div>
 
-      {errorAccion && <div className="form-error">{errorAccion}</div>}
-      {aviso && <div className="form-ok">{aviso}</div>}
-
       <div className="dash">
-        <div className="hero">
-          {destacado ? (
+        {/* Tarjeta grande: el próximo evento. */}
+        <Card variant="borderless" className="hero">
+          {cargando && !items.length ? (
+            <Skeleton active paragraph={{ rows: 2 }} />
+          ) : destacado ? (
             <>
               <div className="hero-top">
-                <span className="eyebrow">
-                  PRÓXIMO · {dias === 0 ? "HOY" : dias === 1 ? "MAÑANA" : `EN ${dias} DÍAS`}
-                </span>
-                <Estado estado={destacado.estado} />
+                <span className="eyebrow">PRÓXIMO · {dias === 0 ? "HOY" : dias === 1 ? "MAÑANA" : `EN ${dias} DÍAS`}</span>
+                <Estado estado={destacado.estado} color={ESTADOS[destacado.estado]} />
               </div>
               <div>
                 <h2>{destacado.tipo_evento}</h2>
@@ -153,25 +214,35 @@ export default function Eventos() {
               </div>
             </>
           ) : (
-            <>
-              <span className="eyebrow">PRÓXIMO</span>
-              <h2 className="muted">{cargando ? "Cargando…" : "Sin eventos a la vista"}</h2>
-              <div className="hero-foot">Creá un evento con fecha para verlo acá.</div>
-            </>
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={
+                <>
+                  <b>Sin eventos a la vista</b>
+                  <br />
+                  Creá un evento con fecha para verlo acá.
+                </>
+              }
+            />
           )}
-        </div>
+        </Card>
 
-        <div className="card week">
-          <b>Esta semana</b>
+        {/* Calendario de la semana: los días con evento se pintan y muestran su nombre al pasar el mouse. */}
+        <Card variant="borderless" className="week" title="Esta semana">
           <div className="week-grid names">
             {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => <span key={i}>{d}</span>)}
           </div>
           <div className="week-grid days">
             {semana.map((d) => {
               const color = colorPorDia[d.iso];
-              const estilo = color ? { background: color, color: "var(--bg)" } : undefined;
+              const estilo = color ? { background: color, color: "var(--on-primary)" } : undefined;
               const clase = d.iso === hoy ? "today" : d.iso < hoy ? "past" : "";
-              return <span key={d.iso} className={clase} style={estilo}>{d.dia}</span>;
+              const nombres = deLaSemana.filter((e) => soloFecha(e.fecha) === d.iso).map((e) => e.tipo_evento).join(", ");
+              return (
+                <Tooltip key={d.iso} title={nombres || undefined}>
+                  <span className={clase} style={estilo}>{d.dia}</span>
+                </Tooltip>
+              );
             })}
           </div>
           <div className="week-list">
@@ -184,65 +255,42 @@ export default function Eventos() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       </div>
+
+      {error && (
+        <Alert
+          type="error"
+          showIcon
+          title={error}
+          action={<Button size="small" onClick={recargar}>Reintentar</Button>}
+        />
+      )}
 
       <div className="table-card">
         <div className="table-bar">
-          <div className="seg">
-            {FILTROS.map((f) => (
-              <button key={f.id} className={filtro === f.id ? "on" : ""} onClick={() => setFiltro(f.id)}>
-                {f.label}
-              </button>
-            ))}
-          </div>
-          <span className="muted" style={{ fontSize: 13 }}>
+          <Segmented
+            value={filtro}
+            onChange={setFiltro}
+            options={FILTROS.map((f) => ({ label: f.label, value: f.id }))}
+          />
+          <span className="muted">
             {cargando ? "Cargando…" : `${lista.length} ${lista.length === 1 ? "evento" : "eventos"}`}
           </span>
         </div>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                {["EVENTO", "FECHA", "SALA", "CAPACIDAD", "ORGANIZA", "ESTADO"].map((t) => <th key={t}>{t}</th>)}
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {lista.map((e) => (
-                <tr key={e.id_evento}>
-                  <td className="first">
-                    <span className="bar-name" style={{ "--c": colorDe(e) }}>
-                      <i />
-                      {e.tipo_evento}
-                    </span>
-                  </td>
-                  <td>{e.fecha ? fechaCorta(e.fecha) : "Sin fecha"}</td>
-                  <td>{e.sede_prevista ?? "—"}</td>
-                  <td>{e.cant_asistentes_estimada != null ? Number(e.cant_asistentes_estimada).toLocaleString("es-AR") : "—"}</td>
-                  <td>
-                    {e.id_organizador == null ? "—" : e.id_organizador === usuario?.id_personal ? "Vos" : `Personal #${e.id_organizador}`}
-                  </td>
-                  <td><Estado estado={e.estado} /></td>
-                  <td className="actions">
-                    {e.token_publico && <button onClick={() => copiarLink(e)}>Link</button>}
-                    <button onClick={() => setEditando(e)}>Editar</button>
-                    <button className="del" onClick={() => borrar(e)}>Eliminar</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {error && (
-          <div className="estado err">
-            {error}{" "}
-            <button className="btn btn--ghost btn--sm" onClick={recargar}>Reintentar</button>
-          </div>
-        )}
-        {!cargando && !error && lista.length === 0 && (
-          <div className="estado">{busqueda ? "Sin resultados." : "No hay eventos en esta vista."}</div>
-        )}
+        <Table
+          rowKey="id_evento"
+          columns={columnas}
+          dataSource={lista}
+          loading={cargando}
+          pagination={{ pageSize: 8, hideOnSinglePage: true, showSizeChanger: false }}
+          scroll={{ x: "max-content" }}
+          locale={{
+            emptyText: (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={busqueda ? "Sin resultados." : "No hay eventos en esta vista."} />
+            ),
+          }}
+        />
       </div>
 
       {editando && (

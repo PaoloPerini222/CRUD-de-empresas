@@ -1,18 +1,25 @@
+import { SearchOutlined } from "@ant-design/icons";
+import { Input, Tag } from "antd";
 import { useAuth } from "../context/AuthContext.jsx";
 import { rolDe } from "./Layout.jsx";
 
+// Barra superior de cada página del panel: buscador (el texto lo maneja la página) y rol del usuario.
 export default function Topbar({ busqueda, onBusqueda, placeholder }) {
   const { usuario } = useAuth();
   return (
     <div className="topbar">
-      <input
+      <Input
         className="search"
-        type="search"
+        size="large"
+        allowClear
+        prefix={<SearchOutlined />}
         value={busqueda}
         onChange={(e) => onBusqueda(e.target.value)}
         placeholder={placeholder}
       />
-      <span className="role-pill">ROL · {rolDe(usuario).toUpperCase()}</span>
+      <Tag className="role-pill" color="cyan" variant="outlined">
+        ROL · {rolDe(usuario).toUpperCase()}
+      </Tag>
     </div>
   );
 }

@@ -1,7 +1,12 @@
+import { ArrowRightOutlined, LoginOutlined } from "@ant-design/icons";
+import { Button, Collapse } from "antd";
 import { useEffect, useRef, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
+import BotonTema from "../components/BotonTema.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 
+// Landing pública: presentación del producto. Los textos están en estas listas (FUNCIONES, PASOS, FAQ).
+// Los botones y el FAQ (acordeón) son de Ant Design.
 const FUNCIONES = [
   { titulo: "Eventos", texto: "Fecha, sede, asistentes y estado de cada fiesta.", color: "var(--pink)" },
   { titulo: "Roles", texto: "Cada persona del equipo con sus permisos.", color: "var(--amber)" },
@@ -20,11 +25,21 @@ const FAQ = [
     pregunta: "¿Qué diferencia hay entre los roles?",
     respuesta: "El responsable administra, el coordinador aprueba y el organizador crea sus eventos.",
   },
-  { pregunta: "¿Puedo manejar varias salas?" },
-  { pregunta: "¿Funciona desde el celular?" },
-  { pregunta: "¿Cuánto cuesta?" },
+  {
+    pregunta: "¿Puedo manejar varias salas?",
+    respuesta: "Sí. Cada evento tiene su propia sala o sede y su estado, así que podés organizar fiestas en distintos espacios a la vez y verlas juntas en el calendario.",
+  },
+  {
+    pregunta: "¿Funciona desde el celular?",
+    respuesta: "Sí. El panel se adapta a la pantalla del teléfono, con menú inferior y tablas en formato de tarjetas, y el enlace que recibe el cliente también se ve bien en el celular.",
+  },
+  {
+    pregunta: "¿Cuánto cuesta?",
+    respuesta: "Crear tu cuenta es gratis. Podés registrarte y empezar a cargar tus eventos, clientes y propuestas sin costo.",
+  },
 ];
 
+// Efecto de aparición: marca con la clase "in" los elementos .reveal cuando entran en pantalla.
 // Marca con la clase "in" los elementos .reveal cuando entran en pantalla.
 function useReveal(ref) {
   useEffect(() => {
@@ -46,8 +61,8 @@ function useReveal(ref) {
 
 export default function Landing() {
   const { usuario } = useAuth();
-  const [abierta, setAbierta] = useState(0);
-  const [scrolled, setScrolled] = useState(false);
+  const navigate = useNavigate();
+  const [scrolled, setScrolled] = useState(false); // true cuando se bajó un poco: la barra pasa a ser de cristal
   const raiz = useRef(null);
 
   useEffect(() => {
@@ -59,19 +74,24 @@ export default function Landing() {
 
   useReveal(raiz);
 
+  // Quien ya tiene sesión va directo al panel.
   if (usuario) return <Navigate to="/eventos" replace />;
 
   return (
     <div className="landing" ref={raiz}>
-        <header className={`land-nav ${scrolled ? "scrolled" : ""}`}>
-          <span>NOCTIS / GESTOR DE FIESTAS</span>
-          <nav>
-            <a href="#funcionalidades">FUNCIONALIDADES</a>
-            <a href="#como-funciona">CÓMO FUNCIONA</a>
-            <a href="#faq">FAQ</a>
-            <Link to="/login" className="cta">INGRESAR →</Link>
-          </nav>
-        </header>
+      <header className={`land-nav ${scrolled ? "scrolled" : ""}`}>
+        <span>NOCTIS / GESTOR DE FIESTAS</span>
+        <nav>
+          <Button shape="round" href="#funcionalidades">Funcionalidades</Button>
+          <Button shape="round" href="#como-funciona">Cómo funciona</Button>
+          <Button shape="round" href="#faq">FAQ</Button>
+          <BotonTema />
+          <Button type="primary" shape="round" icon={<LoginOutlined />} onClick={() => navigate("/login")}>
+            Ingresar
+          </Button>
+        </nav>
+      </header>
+
       <section className="land-hero">
         <h1 className="land-title">NOC<br /><span>TIS</span></h1>
         <div className="land-sub">
@@ -82,7 +102,9 @@ export default function Landing() {
             <li>ORGANIZADORES</li>
           </ul>
           <div className="end reveal d3">
-            <Link to="/registro" className="pill-btn">Crear cuenta gratis</Link>
+            <Button type="primary" size="large" shape="round" onClick={() => navigate("/registro")}>
+              Crear cuenta gratis <ArrowRightOutlined />
+            </Button>
           </div>
         </div>
       </section>
@@ -110,23 +132,22 @@ export default function Landing() {
         ))}
       </section>
 
+      {/* Preguntas frecuentes: acordeón de Ant Design (se abre una sola a la vez). */}
       <section className="faq" id="faq">
         <h2 className="reveal">FAQ</h2>
-        <div>
-          {FAQ.map((f, i) => (
-            <div key={f.pregunta} className="faq-item reveal">
-              <button onClick={() => setAbierta(abierta === i ? -1 : i)}>
-                {f.pregunta}
-              </button>
-              {abierta === i && f.respuesta && <p>{f.respuesta}</p>}
-            </div>
-          ))}
-        </div>
+        <Collapse
+          className="reveal"
+          accordion
+          ghost
+          size="large"
+          defaultActiveKey={["0"]}
+          items={FAQ.map((f, i) => ({ key: String(i), label: f.pregunta, children: <p>{f.respuesta}</p> }))}
+        />
       </section>
 
       <footer className="land-foot">
         <span>NOCTIS</span>
-        <Link to="/login">INGRESAR →</Link>
+        <Button type="link" onClick={() => navigate("/login")}>Ingresar</Button>
       </footer>
     </div>
   );
