@@ -45,7 +45,7 @@ services:
     restart: unless-stopped
 
   front:
-    build: ./front
+    build: ./frontend
     container_name: eventos-front
     ports:
       - "8081:80"
