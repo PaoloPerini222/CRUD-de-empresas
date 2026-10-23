@@ -1,4 +1,5 @@
 import pool from "../data/db.js";
+import {validarConfirmacion} from "../utils/reglas.js";
 
 const ID_MAXIMO = 2147483647;
 const REGEX_FECHA = /^\d{4}-\d{2}-\d{2}$/;
@@ -15,6 +16,10 @@ const ESTADOS = [
 ];
 const ESTADOS_SEDE = ["pendiente", "confirmada"];
 const ESTADOS_QUE_EXIGEN_DATOS = ["aceptada", "confirmado", "preparacion", "realizado"];
+
+// Estados que no se eligen a mano: los define la propuesta o el cierre del evento.
+const ESTADOS_POR_PROPUESTA = ["propuesta_enviada", "aceptada", "rechazada"];
+const ESTADOS_POR_CIERRE = ["realizado", "cancelado"];
 
 const parseId = (valor) => {
     if(typeof valor !== "string" || !/^\d+$/.test(valor)){
@@ -166,15 +171,17 @@ export const obtenerEvento = async (req, res) => {
 
 export const crearEvento = async (req, res) => {
     try{
-        const {error, datos} = validarEvento(req.body, {requiereCliente: true});
+        // El estado que venga en el body se ignora: toda solicitud nace "recibida".
+        const {error, datos} = validarEvento({...req.body, estado: undefined}, {requiereCliente: true});
         if(error){
             return res.status(400).json({mensaje: error});
         }
 
+        // Todo evento nace como solicitud recibida; si no se indica organizador, es quien lo carga.
         const nuevoEvento = await pool.query(
             `insert into evento (id_cliente, tipo_evento, fecha, sede_prevista, cant_asistentes_estimada, necesidades_preferencias, estado, id_organizador, estado_sede)
-             values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning *`,
-            [datos.id_cliente, datos.tipo_evento, datos.fecha, datos.sede_prevista, datos.cant_asistentes_estimada, datos.necesidades_preferencias, datos.estado, datos.id_organizador, datos.estado_sede]
+             values ($1, $2, $3, $4, $5, $6, 'recibida', $7, $8) returning *`,
+            [datos.id_cliente, datos.tipo_evento, datos.fecha, datos.sede_prevista, datos.cant_asistentes_estimada, datos.necesidades_preferencias, datos.id_organizador ?? req.usuario?.id_personal ?? null, datos.estado_sede]
         );
 
         res.status(201).json(nuevoEvento.rows[0]);
@@ -202,9 +209,31 @@ export const editarEvento = async (req, res) => {
             return res.status(404).json({mensaje: "ese evento no existe"});
         }
 
+        const estadoActual = actual.rows[0].estado;
+        if(ESTADOS_POR_CIERRE.includes(estadoActual)){
+            return res.status(409).json({mensaje: `el evento esta ${estadoActual} y se conserva sin cambios`});
+        }
+
         const {error, datos} = validarEvento({...actual.rows[0], ...req.body}, {requiereCliente: false});
         if(error){
             return res.status(400).json({mensaje: error});
+        }
+
+        if(datos.estado !== estadoActual){
+            if(ESTADOS_POR_CIERRE.includes(datos.estado)){
+                return res.status(400).json({mensaje: "para cerrar el evento (realizado o cancelado) usa el cierre del evento"});
+            }
+            if(ESTADOS_POR_PROPUESTA.includes(datos.estado)){
+                return res.status(400).json({mensaje: "ese estado lo define la propuesta del evento"});
+            }
+            if(datos.estado === "confirmado" || datos.estado === "preparacion"){
+                const errorConfirmacion = estadoActual === "aceptada" || estadoActual === "confirmado" || estadoActual === "preparacion"
+                    ? await validarConfirmacion(pool, idEvento)
+                    : "para confirmar el encargo el cliente tiene que haber aceptado la propuesta";
+                if(errorConfirmacion){
+                    return res.status(400).json({mensaje: errorConfirmacion});
+                }
+            }
         }
 
         const eventoEditado = await pool.query(
@@ -232,6 +261,14 @@ export const eliminarEvento = async (req, res) => {
         const idEvento = parseId(req.params.id);
         if(idEvento === null){
             return res.status(400).json({mensaje: "el id del evento no es valido"});
+        }
+
+        const actual = await pool.query(`select estado from evento where id_evento = $1`, [idEvento]);
+        if(actual.rows.length === 0){
+            return res.status(404).json({mensaje: "ese evento no existe"});
+        }
+        if(actual.rows[0].estado !== "recibida"){
+            return res.status(409).json({mensaje: "solo se elimina una solicitud recien recibida (error de carga); los demas eventos se conservan y se cierran"});
         }
 
         const eliminar = await pool.query(`delete from evento where id_evento = $1 RETURNING *`, [idEvento]);

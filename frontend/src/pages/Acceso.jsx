@@ -39,13 +39,17 @@ export default function Acceso({ modo }) {
 
   return (
     <div className="auth">
+      {/* Volver y cambiar de tema: arriba a la derecha de la página. */}
+      <div className="auth-acciones">
+        <Button shape="round" icon={<ArrowLeftOutlined />} onClick={() => navigate("/")}>
+          Volver al inicio
+        </Button>
+        <BotonTema />
+      </div>
+
       <div className="auth-art">
         <div className="art-top">
           <Logo />
-          <Button shape="round" icon={<ArrowLeftOutlined />} onClick={() => navigate("/")}>
-            Volver al inicio
-          </Button>
-          <BotonTema />
         </div>
         {esLogin ? (
           <h2 key="l">Volvé<br /><span style={{ color: "var(--pink)" }}>a la pista.</span></h2>

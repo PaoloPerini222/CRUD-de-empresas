@@ -1,9 +1,13 @@
 import {
+  AlertOutlined,
+  AppstoreOutlined,
   BankOutlined,
   CalendarOutlined,
   CheckSquareOutlined,
   FileTextOutlined,
+  IdcardOutlined,
   LogoutOutlined,
+  ShopOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
 import { Avatar, Button, Dropdown, Menu, Tooltip } from "antd";
@@ -12,17 +16,24 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { iniciales } from "../utils/formato.js";
 import BotonTema from "./BotonTema.jsx";
 import Logo from "./Logo.jsx";
+import SinRol from "./SinRol.jsx";
 
 // Secciones del panel: alimentan el menú lateral (escritorio) y la barra inferior (móvil).
 export const SECCIONES = [
+  { to: "/pendientes", label: "Pendientes", icono: <AlertOutlined /> },
   { to: "/eventos", label: "Eventos", icono: <CalendarOutlined /> },
-  { to: "/clientes", label: "Clientes", icono: <TeamOutlined /> },
-  { to: "/empresas", label: "Empresas", icono: <BankOutlined /> },
   { to: "/propuestas", label: "Propuestas", icono: <FileTextOutlined /> },
   { to: "/tareas", label: "Tareas", icono: <CheckSquareOutlined /> },
+  { to: "/clientes", label: "Clientes", icono: <TeamOutlined /> },
+  { to: "/proveedores", label: "Proveedores", icono: <ShopOutlined /> },
+  { to: "/servicios", label: "Servicios", icono: <AppstoreOutlined /> },
+  { to: "/equipo", label: "Equipo", icono: <IdcardOutlined /> },
+  { to: "/empresas", label: "Empresas", icono: <BankOutlined /> },
 ];
 
-export const rolDe = (usuario) => usuario?.roles?.[0] ?? "Sin rol";
+// Una persona puede tener varios roles: se muestran todos ("Organizador · Coordinador").
+export const rolDe = (usuario) =>
+  usuario?.roles?.length ? usuario.roles.map((r) => r.charAt(0).toUpperCase() + r.slice(1)).join(" · ") : "Sin rol";
 
 // Estilo del círculo con las iniciales del usuario.
 const ESTILO_AVATAR = { background: "var(--amber)", color: "var(--on-primary)", fontWeight: 700 };
@@ -50,7 +61,7 @@ export default function Layout() {
         <Menu
           mode="inline"
           className="menu-lateral"
-          selectedKeys={[pathname]}
+          selectedKeys={[SECCIONES.find((s) => pathname.startsWith(s.to))?.to ?? pathname]}
           items={SECCIONES.map((s) => ({ key: s.to, icon: s.icono, label: s.label }))}
           onClick={({ key }) => navigate(key)}
         />
@@ -83,7 +94,8 @@ export default function Layout() {
         </Dropdown>
       </div>
 
-      <Outlet />
+      {/* Sin rol asignado no hay nada que mostrar: se pide la autorización de la responsable. */}
+      {usuario?.roles?.length ? <Outlet /> : <SinRol onSalir={cerrarSesion} />}
 
       {/* Barra inferior que solo se ve en teléfono. NavLink marca con "on" la sección activa. */}
       <nav className="mobile-nav">
