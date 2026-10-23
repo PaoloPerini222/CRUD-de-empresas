@@ -1,5 +1,6 @@
 import pool from "../data/db.js";
 import {listaDeIds, parseId, textoObligatorio} from "../utils/validaciones.js";
+import {RESPONSABLE} from "../middleware/permisos.js";
 
 // Personal con su email (si tiene usuario) y la lista de roles.
 const SELECT_PERSONAL = `
@@ -11,6 +12,10 @@ const SELECT_PERSONAL = `
     left join personal_rol pr on pr.id_personal = p.id_personal
     left join rol r on r.id_rol = pr.id_rol`;
 
+// El email del personal solo lo ve la responsable (quien gestiona el equipo).
+const sinEmailSiNoCorresponde = (req, persona) =>
+    req.usuario?.roles?.includes(RESPONSABLE) ? persona : {...persona, email: null};
+
 const buscarPersonal = async (db, idPersonal) => {
     const personal = await db.query(`${SELECT_PERSONAL} where p.id_personal = $1 group by p.id_personal, u.email`, [idPersonal]);
 
@@ -21,7 +26,7 @@ export const obtenerPersonales = async (req, res) => {
     try{
         const personal = await pool.query(`${SELECT_PERSONAL} group by p.id_personal, u.email order by p.nombre`);
 
-        res.json(personal.rows);
+        res.json(personal.rows.map((persona) => sinEmailSiNoCorresponde(req, persona)));
 
     } catch(error){
         console.error(error);
@@ -42,7 +47,7 @@ export const obtenerPersonal = async (req, res) => {
             return res.status(404).json({mensaje: "esa persona no existe"});
         }
 
-        res.json(personal);
+        res.json(sinEmailSiNoCorresponde(req, personal));
 
     } catch(error){
         console.error(error);

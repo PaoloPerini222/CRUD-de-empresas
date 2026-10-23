@@ -11,8 +11,9 @@ import {
   TeamOutlined,
 } from "@ant-design/icons";
 import { Avatar, Button, Dropdown, Menu, Tooltip } from "antd";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import usePermisos from "../hooks/usePermisos.js";
 import { iniciales } from "../utils/formato.js";
 import BotonTema from "./BotonTema.jsx";
 import Logo from "./Logo.jsx";
@@ -42,8 +43,20 @@ const ESTILO_AVATAR = { background: "var(--amber)", color: "var(--on-primary)", 
 // <Outlet /> es donde React Router dibuja la página activa (Eventos, Clientes, etc.).
 export default function Layout() {
   const { usuario, salir } = useAuth();
+  const { soloEmpresas, tieneRol, esSuperadmin } = usePermisos();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+
+  // Sin rol no hay secciones a las que entrar. Empresas es solo del superadmin, y el superadmin
+  // (sin un rol de la organizadora) no ve ni entra a las demás secciones.
+  const secciones = !tieneRol
+    ? []
+    : soloEmpresas
+      ? SECCIONES.filter((s) => s.to === "/empresas")
+      : SECCIONES.filter((s) => s.to !== "/empresas" || esSuperadmin);
+  const inicio = soloEmpresas ? "/empresas" : "/eventos";
+  if (soloEmpresas && !pathname.startsWith("/empresas")) return <Navigate to="/empresas" replace />;
+  if (!esSuperadmin && pathname.startsWith("/empresas")) return <Navigate to="/eventos" replace />;
 
   const cerrarSesion = () => {
     salir();
@@ -55,14 +68,14 @@ export default function Layout() {
   return (
     <div className="shell">
       <aside className="side">
-        <Logo to="/eventos" />
+        <Logo to={inicio} />
 
         {/* Menú de Ant Design: la sección activa sale de la URL actual. */}
         <Menu
           mode="inline"
           className="menu-lateral"
-          selectedKeys={[SECCIONES.find((s) => pathname.startsWith(s.to))?.to ?? pathname]}
-          items={SECCIONES.map((s) => ({ key: s.to, icon: s.icono, label: s.label }))}
+          selectedKeys={[secciones.find((s) => pathname.startsWith(s.to))?.to ?? pathname]}
+          items={secciones.map((s) => ({ key: s.to, icon: s.icono, label: s.label }))}
           onClick={({ key }) => navigate(key)}
         />
 
@@ -82,7 +95,7 @@ export default function Layout() {
 
       {/* Cabecera que solo se ve en teléfono. */}
       <div className="mobile-top">
-        <Logo to="/eventos" />
+        <Logo to={inicio} />
         <BotonTema />
         <Dropdown
           trigger={["click"]}
@@ -99,7 +112,7 @@ export default function Layout() {
 
       {/* Barra inferior que solo se ve en teléfono. NavLink marca con "on" la sección activa. */}
       <nav className="mobile-nav">
-        {SECCIONES.map((s) => (
+        {secciones.map((s) => (
           <NavLink key={s.to} to={s.to} className={({ isActive }) => (isActive ? "on" : "")}>
             {s.icono}
             {s.label}

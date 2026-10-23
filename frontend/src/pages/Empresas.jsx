@@ -8,6 +8,8 @@ const config = {
   api: empresasApi,
   id: "id_empresa",
   buscar: (e) => `${e.nombre} ${e.cuit} ${e.email ?? ""}`,
+  puedeCrear: (p) => p.esSuperadmin,
+  puedeEditar: (p) => p.esSuperadmin,
   columnas: [
     { titulo: "Empresa", render: (e) => e.nombre },
     { titulo: "CUIT", render: (e) => e.cuit },

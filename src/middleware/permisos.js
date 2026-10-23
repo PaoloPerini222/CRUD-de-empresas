@@ -5,11 +5,18 @@ import { parseId } from "../utils/validaciones.js";
 export const RESPONSABLE = "responsable";
 export const COORDINADOR = "coordinador";
 export const ORGANIZADOR = "organizador";
+// El superadmin es el equipo que administra la plataforma: solo gestiona las empresas, no los datos de la organizadora.
+export const SUPERADMIN = "superadmin";
+export const ROLES_DE_LA_ORGANIZADORA = [RESPONSABLE, COORDINADOR, ORGANIZADOR];
 
-// Quien no tiene ningún rol todavía no fue autorizado: no ve ni modifica nada.
+// Quien no tiene un rol de la organizadora no ve ni modifica sus datos (eventos, clientes, personal, etc.).
 export const conRol = (req, res, next) => {
-    if (!req.usuario?.roles?.length) {
-        return res.status(403).json({ mensaje: "Tu cuenta todavía no tiene un rol asignado. Pedile a la responsable que te autorice" });
+    const roles = req.usuario?.roles ?? [];
+    if (!roles.some((rol) => ROLES_DE_LA_ORGANIZADORA.includes(rol))) {
+        const mensaje = roles.includes(SUPERADMIN)
+            ? "El superadmin solo administra las empresas"
+            : "Tu cuenta todavía no tiene un rol asignado. Pedile a la responsable que te autorice";
+        return res.status(403).json({ mensaje });
     }
     next();
 };

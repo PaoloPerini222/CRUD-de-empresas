@@ -67,7 +67,7 @@ export default function PanelCierre({ evento, cierre, onCambio }) {
             <Descriptions.Item label="Motivo">{cierre.motivo_cancelacion}</Descriptions.Item>
           </>
         )}
-        <Descriptions.Item label="Observaciones" span={2}>{cierre.observaciones ?? "—"}</Descriptions.Item>
+        <Descriptions.Item label="Observaciones" span="filled">{cierre.observaciones ?? "—"}</Descriptions.Item>
       </Descriptions>
 
       {cierre.resultado === "cancelado" && (

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { verificarToken } from "../middleware/auth.middleware.js";
-import { conRol } from "../middleware/permisos.js";
+import { soloRoles, SUPERADMIN } from "../middleware/permisos.js";
 import { obtenerEmpresas,
     obtenerEmpresa,
     crearEmpresa,
@@ -9,7 +9,8 @@ import { obtenerEmpresas,
 
 const router = Router();
 
-router.use(verificarToken, conRol);
+// Las empresas son de la plataforma: solo el superadmin las ve y las administra.
+router.use(verificarToken, soloRoles(SUPERADMIN));
 
 router.get("/", obtenerEmpresas);
 router.get("/:id", obtenerEmpresa);

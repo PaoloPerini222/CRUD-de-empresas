@@ -14,6 +14,7 @@ export default function usePermisos() {
   const esOrganizador = roles.includes("organizador");
   const esResponsable = roles.includes("responsable");
   const esCoordinador = roles.includes("coordinador");
+  const esSuperadmin = roles.includes("superadmin");
   const esDuenoDe = (evento) => esOrganizador && evento?.id_organizador != null && evento.id_organizador === yo;
 
   return {
@@ -23,6 +24,9 @@ export default function usePermisos() {
     esOrganizador,
     esResponsable,
     esCoordinador,
+    esSuperadmin,
+    // El superadmin sin un rol de la organizadora solo administra las empresas (ver soloEmpresas en Layout).
+    soloEmpresas: esSuperadmin && !esOrganizador && !esResponsable && !esCoordinador,
     esDuenoDe,
     puedeCambiarEstadoTarea: (tarea) => esCoordinador || tarea?.id_personal === yo,
   };

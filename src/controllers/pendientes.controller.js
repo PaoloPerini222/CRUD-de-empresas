@@ -46,7 +46,8 @@ export const obtenerPendientes = async (req, res) => {
                 `select p.id_propuesta, p.total, e.id_evento, e.tipo_evento, e.fecha::text as fecha_evento
                  from propuesta p
                  join evento e on e.id_evento = p.id_evento
-                 where p.estado = 'pendiente_aprobacion' and ($1::int is null or e.id_evento = $1)
+                 where p.estado = 'pendiente_aprobacion' and e.estado not in ${ESTADOS_CERRADOS}
+                   and ($1::int is null or e.id_evento = $1)
                  order by e.fecha nulls last, p.id_propuesta`,
                 [idEvento]
             ),

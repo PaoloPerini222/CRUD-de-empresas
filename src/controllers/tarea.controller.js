@@ -1,9 +1,12 @@
 import pool from "../data/db.js";
 import {parseId} from "../utils/validaciones.js";
-import {COORDINADOR} from "../middleware/permisos.js";
+import {COORDINADOR, ROLES_DE_LA_ORGANIZADORA} from "../middleware/permisos.js";
+import {ESTADOS_EVENTO_CERRADOS} from "../utils/reglas.js";
 
 const ESTADOS = ["pendiente", "en_curso", "terminada", "cancelada"];
-const ESTADOS_SIN_TAREAS = ["cancelado", "realizado", "rechazada"];
+const ESTADOS_SIN_TAREAS = ESTADOS_EVENTO_CERRADOS;
+// Una tarea terminada o cancelada ya no cambia de estado.
+const ESTADOS_FINALES_TAREA = ["terminada", "cancelada"];
 const REGEX_FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
 const esFechaValida = (valor) => {
@@ -53,6 +56,14 @@ const validarTarea = async (datos) => {
         }
     }
 
+    // Solo recibe tareas alguien del equipo con rol: una persona sin rol no puede entrar a verlas.
+    const conRol = await pool.query(`
+        SELECT 1 FROM personal_rol pr JOIN rol r ON r.id_rol = pr.id_rol
+        WHERE pr.id_personal = $1 AND r.nombre = ANY($2) LIMIT 1`, [idPersonal, ROLES_DE_LA_ORGANIZADORA]);
+    if (conRol.rows.length === 0) {
+        return {error: "Esa persona no tiene un rol en la organizadora: no puede recibir tareas"};
+    }
+
     const evento = await pool.query(`SELECT estado FROM evento WHERE id_evento = $1`, [idEvento]);
     if (evento.rows.length === 0) {
         return {error: "El evento indicado no existe"};
@@ -91,6 +102,7 @@ export const obtenerTareas = async (req, res) => {
         const resultado = await pool.query(`${SELECT_TAREA} ORDER BY id_tarea`);
         res.json(resultado.rows);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ mensaje: "Error al obtener las tareas" });
     };
 };
@@ -108,6 +120,7 @@ export const obtenerTarea = async (req, res) => {
         };
         res.json(resultado.rows[0]);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ mensaje: "Error al obtener la tarea" });
     }
 };
@@ -181,9 +194,19 @@ export const cambiarEstadoTarea = async (req, res) => {
             return res.status(400).json({ mensaje: `El estado debe ser uno de: ${ESTADOS.join(", ")}` });
         }
 
-        const actual = await pool.query(`SELECT id_personal FROM tarea WHERE id_tarea = $1`, [id]);
+        const actual = await pool.query(`
+            SELECT t.id_personal, t.estado, e.estado AS estado_evento
+            FROM tarea t JOIN evento e ON e.id_evento = t.id_evento
+            WHERE t.id_tarea = $1`, [id]);
         if (actual.rows.length === 0) {
             return res.status(404).json({ mensaje: "Tarea no encontrada" });
+        }
+        const { estado_evento, estado: estadoActual } = actual.rows[0];
+        if (ESTADOS_EVENTO_CERRADOS.includes(estado_evento)) {
+            return res.status(409).json({ mensaje: `El evento está ${estado_evento}: sus tareas ya no cambian` });
+        }
+        if (ESTADOS_FINALES_TAREA.includes(estadoActual) && estado !== estadoActual) {
+            return res.status(409).json({ mensaje: `La tarea ya está ${estadoActual} y no cambia de estado` });
         }
 
         const esResponsable = actual.rows[0].id_personal === req.usuario.id_personal;
@@ -214,6 +237,7 @@ export const eliminarTarea = async (req, res) => {
         };
         res.json({ mensaje: "Tarea eliminada", tarea: resultado.rows[0] });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ mensaje: "Error al eliminar la tarea" });
     }
 };

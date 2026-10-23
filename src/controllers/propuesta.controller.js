@@ -1,6 +1,14 @@
 import pool from "../data/db.js";
 import {parseId, textoOpcional} from "../utils/validaciones.js";
 import {RESPONSABLE} from "../middleware/permisos.js";
+import {ESTADOS_EVENTO_CERRADOS, sincronizarEventoConPropuesta} from "../utils/reglas.js";
+
+// Con el evento cerrado (realizado, cancelado o rechazado) su propuesta se conserva sin cambios.
+const estadoDelEvento = async (db, idEvento) => {
+    const evento = await db.query(`SELECT estado FROM evento WHERE id_evento = $1`, [idEvento]);
+    return evento.rows[0]?.estado ?? null;
+};
+const mensajeEventoCerrado = (estado) => `El evento está ${estado}: su propuesta ya no se modifica`;
 
 const REGEX_FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -14,15 +22,6 @@ const TRANSICIONES = {
     aceptada: [],
     rechazada: [],
 };
-
-// Como avanza el estado del evento segun lo que pasa con su propuesta (solo mientras es una solicitud).
-const ESTADO_EVENTO = {
-    pendiente_aprobacion: "en_evaluacion",
-    enviada: "propuesta_enviada",
-    aceptada: "aceptada",
-    rechazada: "rechazada",
-};
-const ESTADOS_SOLICITUD = ["recibida", "en_evaluacion", "propuesta_enviada"];
 
 const esFechaValida = (valor) => {
     if(typeof valor !== "string" || !REGEX_FECHA.test(valor)){
@@ -79,6 +78,7 @@ export const obtenerPropuestas = async (req, res) => {
         const resultado = await pool.query(`SELECT * FROM propuesta ORDER BY id_propuesta`)
         res.json(resultado.rows)
     } catch (error) {
+        console.error(error);
         res.status(500).json({ mensaje: "Error al obtener las propuestas" })
     };
 };
@@ -98,6 +98,7 @@ export const obtenerPropuesta = async (req, res) => {
         };
         res.json(resultado.rows[0]);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ mensaje: "Error al obtener la propuesta" });
     }
 };
@@ -113,6 +114,11 @@ export const crearPropuesta = async (req, res) => {
         const { error, datos } = validarCampos(req.body);
         if (error) {
             return res.status(400).json({ mensaje: error });
+        }
+
+        const estadoEvento = await estadoDelEvento(pool, idEvento);
+        if (ESTADOS_EVENTO_CERRADOS.includes(estadoEvento)) {
+            return res.status(409).json({ mensaje: mensajeEventoCerrado(estadoEvento) });
         }
 
         const resultado = await pool.query(`
@@ -145,6 +151,12 @@ export const editarPropuesta = async (req, res) => {
             return res.status(404).json({ mensaje: "Propuesta no encontrada" });
         }
         const actual = actualRes.rows[0];
+
+        const estadoEvento = await estadoDelEvento(cliente, actual.id_evento);
+        if (ESTADOS_EVENTO_CERRADOS.includes(estadoEvento)) {
+            await cliente.query("ROLLBACK");
+            return res.status(409).json({ mensaje: mensajeEventoCerrado(estadoEvento) });
+        }
 
         if (req.body?.id_evento !== undefined && parseId(req.body.id_evento) !== actual.id_evento) {
             await cliente.query("ROLLBACK");
@@ -185,25 +197,22 @@ export const editarPropuesta = async (req, res) => {
         }
 
         const respuesta = estado !== actual.estado && (estado === "aceptada" || estado === "rechazada");
+        // Al enviarla al cliente queda registrada la fecha de emision (si no se cargo otra).
+        const seEnvia = estado !== actual.estado && estado === "enviada";
         const resultado = await cliente.query(`
             UPDATE propuesta
-            SET fecha_emision = $1, condiciones_acordadas = $2, motivo_rechazo = $3, estado = $4::text,
+            SET fecha_emision = COALESCE($1::date, CASE WHEN $8 THEN CURRENT_DATE END), condiciones_acordadas = $2, motivo_rechazo = $3, estado = $4::text,
                 fecha_respuesta = CASE WHEN $5 THEN COALESCE($6::date, CURRENT_DATE) ELSE $6::date END,
                 aprobado_por = CASE WHEN $4::text IN ('borrador', 'pendiente_aprobacion') THEN NULL ELSE aprobado_por END,
                 fecha_aprobacion = CASE WHEN $4::text IN ('borrador', 'pendiente_aprobacion') THEN NULL ELSE fecha_aprobacion END
             WHERE id_propuesta = $7
             RETURNING *`,
-            [datos.fecha_emision, datos.condiciones_acordadas, datos.motivo_rechazo, estado, respuesta, datos.fecha_respuesta, id]
+            [datos.fecha_emision, datos.condiciones_acordadas, datos.motivo_rechazo, estado, respuesta, datos.fecha_respuesta, id, seEnvia]
         );
 
-        // Mientras el evento es una solicitud, su estado acompaña a la propuesta.
-        const nuevoEstadoEvento = ESTADO_EVENTO[estado];
-        if (estado !== actual.estado && nuevoEstadoEvento) {
-            await cliente.query(
-                `UPDATE evento SET estado = $1 WHERE id_evento = $2 AND estado = ANY($3)`,
-                [nuevoEstadoEvento, actual.id_evento, ESTADOS_SOLICITUD]
-            );
-        }
+        // Mientras el evento es una solicitud, su estado acompaña a la propuesta. Se mira el estado
+        // que quedó guardado: el trigger puede haber reabierto una propuesta enviada que se modificó.
+        await sincronizarEventoConPropuesta(cliente, id);
 
         await cliente.query("COMMIT");
         res.json(resultado.rows[0]);
@@ -231,11 +240,15 @@ export const aprobarPropuesta = async (req, res) => {
         }
 
         const actual = await pool.query(`
-            SELECT estado, total,
+            SELECT p.estado, p.total, e.estado AS estado_evento,
                    (SELECT count(*) FROM detalle_propuesta d WHERE d.id_propuesta = $1 AND NOT d.descartado)::int AS servicios
-            FROM propuesta WHERE id_propuesta = $1`, [id]);
+            FROM propuesta p JOIN evento e ON e.id_evento = p.id_evento
+            WHERE p.id_propuesta = $1`, [id]);
         if (actual.rows.length === 0) {
             return res.status(404).json({ mensaje: "Propuesta no encontrada" });
+        }
+        if (ESTADOS_EVENTO_CERRADOS.includes(actual.rows[0].estado_evento)) {
+            return res.status(409).json({ mensaje: mensajeEventoCerrado(actual.rows[0].estado_evento) });
         }
         if (actual.rows[0].estado !== "pendiente_aprobacion") {
             return res.status(409).json({ mensaje: "Solo se revisa una propuesta que está pendiente de aprobación" });
@@ -261,27 +274,40 @@ export const aprobarPropuesta = async (req, res) => {
 };
 
 // Solo se borra una propuesta que todavia es borrador: lo enviado, aceptado o rechazado se conserva.
+// Sus servicios se borran con ella (si alguno ya tiene tareas, no se borra nada).
 export const eliminarPropuesta = async (req, res) => {
+    const cliente = await pool.connect();
     try {
         const id = parseId(req.params.id);
         if (id === null) {
             return res.status(400).json({ mensaje: "El id de la propuesta no es válido" });
         }
 
-        const actual = await pool.query(`SELECT estado FROM propuesta WHERE id_propuesta = $1`, [id]);
+        await cliente.query("BEGIN");
+
+        const actual = await cliente.query(`SELECT estado FROM propuesta WHERE id_propuesta = $1 FOR UPDATE`, [id]);
         if (actual.rows.length === 0) {
+            await cliente.query("ROLLBACK");
             return res.status(404).json({ mensaje: "Propuesta no encontrada" });
         };
         if (actual.rows[0].estado !== "borrador") {
+            await cliente.query("ROLLBACK");
             return res.status(409).json({ mensaje: "Solo se puede eliminar una propuesta en borrador" });
         }
 
-        const resultado = await pool.query(`DELETE FROM propuesta WHERE id_propuesta = $1 RETURNING *`, [id]);
+        await cliente.query(`DELETE FROM detalle_propuesta WHERE id_propuesta = $1`, [id]);
+        const resultado = await cliente.query(`DELETE FROM propuesta WHERE id_propuesta = $1 RETURNING *`, [id]);
+
+        await cliente.query("COMMIT");
         res.json({ mensaje: "Propuesta eliminada", propuesta: resultado.rows[0] });
     } catch (error) {
+        await cliente.query("ROLLBACK");
+        console.error(error);
         if (error.code === "23503") {
-            return res.status(409).json({ mensaje: "La propuesta tiene detalles asociados y no se puede eliminar" });
+            return res.status(409).json({ mensaje: "La propuesta tiene servicios con tareas asociadas y no se puede eliminar" });
         }
         res.status(500).json({ mensaje: "Error al eliminar la propuesta" });
+    } finally {
+        cliente.release();
     }
 };

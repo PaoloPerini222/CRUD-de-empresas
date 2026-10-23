@@ -1,5 +1,5 @@
 import pool from "../data/db.js";
-import {validarConfirmacion} from "../utils/reglas.js";
+import {ESTADOS_EVENTO_CERRADOS, validarConfirmacion} from "../utils/reglas.js";
 
 const ID_MAXIMO = 2147483647;
 const REGEX_FECHA = /^\d{4}-\d{2}-\d{2}$/;
@@ -20,6 +20,16 @@ const ESTADOS_QUE_EXIGEN_DATOS = ["aceptada", "confirmado", "preparacion", "real
 // Estados que no se eligen a mano: los define la propuesta o el cierre del evento.
 const ESTADOS_POR_PROPUESTA = ["propuesta_enviada", "aceptada", "rechazada"];
 const ESTADOS_POR_CIERRE = ["realizado", "cancelado"];
+// Cambios de estado que se hacen a mano: el evento avanza y no vuelve atras (salvo entre
+// confirmado y preparacion, y mientras la solicitud todavia se evalua).
+const CAMBIOS_MANUALES = {
+    recibida: ["en_evaluacion"],
+    en_evaluacion: ["recibida"],
+    propuesta_enviada: [],
+    aceptada: ["confirmado"],
+    confirmado: ["preparacion"],
+    preparacion: ["confirmado"],
+};
 
 const parseId = (valor) => {
     if(typeof valor !== "string" || !/^\d+$/.test(valor)){
@@ -210,7 +220,7 @@ export const editarEvento = async (req, res) => {
         }
 
         const estadoActual = actual.rows[0].estado;
-        if(ESTADOS_POR_CIERRE.includes(estadoActual)){
+        if(ESTADOS_EVENTO_CERRADOS.includes(estadoActual)){
             return res.status(409).json({mensaje: `el evento esta ${estadoActual} y se conserva sin cambios`});
         }
 
@@ -233,6 +243,10 @@ export const editarEvento = async (req, res) => {
                 if(errorConfirmacion){
                     return res.status(400).json({mensaje: errorConfirmacion});
                 }
+            }
+            const permitidos = CAMBIOS_MANUALES[estadoActual] ?? [];
+            if(!permitidos.includes(datos.estado)){
+                return res.status(409).json({mensaje: `desde ${estadoActual} el evento solo puede pasar a: ${permitidos.join(", ") || "ningun estado a mano"}`});
             }
         }
 

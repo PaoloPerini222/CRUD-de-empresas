@@ -15,6 +15,19 @@ const validarServicio = (body) => {
     return {datos: {nombre: nombre.valor, descripcion: descripcion.valor}};
 };
 
+// Dos servicios no pueden llamarse igual (sin distinguir mayusculas ni espacios de mas).
+const nombreRepetido = async (nombre, idServicio = null) => {
+    const repetido = await pool.query(
+        `select 1 from servicio
+         where lower(regexp_replace(trim(nombre), '\\s+', ' ', 'g')) = lower(regexp_replace(trim($1), '\\s+', ' ', 'g'))
+           and ($2::int is null or id_servicio <> $2)
+         limit 1`,
+        [nombre, idServicio]
+    );
+
+    return repetido.rows.length > 0;
+};
+
 export const obtenerServicios = async (req, res) => {
     try{
         const servicios = await pool.query(`select * from servicio order by nombre`);
@@ -55,6 +68,9 @@ export const crearServicio = async (req, res) => {
         if(error){
             return res.status(400).json({mensaje: error});
         }
+        if(await nombreRepetido(datos.nombre)){
+            return res.status(409).json({mensaje: "ya existe un servicio con ese nombre"});
+        }
 
         const creado = await pool.query(
             `insert into servicio (nombre, descripcion) values ($1, $2) returning *`,
@@ -85,6 +101,9 @@ export const editarServicio = async (req, res) => {
         const {error, datos} = validarServicio({...actual.rows[0], ...req.body});
         if(error){
             return res.status(400).json({mensaje: error});
+        }
+        if(await nombreRepetido(datos.nombre, idServicio)){
+            return res.status(409).json({mensaje: "ya existe un servicio con ese nombre"});
         }
 
         const editado = await pool.query(

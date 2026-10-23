@@ -52,6 +52,19 @@ export function AuthProvider({ children }) {
     refrescar();
   }, [refrescar]);
 
+  // La sesión vive en localStorage, que comparten todas las pestañas: si en otra pestaña se entra con
+  // otra cuenta o se cierra la sesión, esta pestaña se pone al día. Si no, mostraría un usuario y mandaría
+  // el token de otro (por ejemplo, "Admin" en pantalla pero el token del superadmin).
+  useEffect(() => {
+    const alCambiarEnOtraPestana = (evento) => {
+      if (evento.key === null || evento.key === "token" || evento.key === "usuario") {
+        setUsuario(localStorage.getItem("token") ? leerUsuario() : null);
+      }
+    };
+    window.addEventListener("storage", alCambiarEnOtraPestana);
+    return () => window.removeEventListener("storage", alCambiarEnOtraPestana);
+  }, []);
+
   return (
     <AuthContext.Provider value={{ usuario, ingresar, salir, refrescar }}>
       {children}

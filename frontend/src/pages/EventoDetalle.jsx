@@ -133,7 +133,7 @@ export default function EventoDetalle() {
     acciones.push(<Button key="cancelar" danger icon={<CloseCircleOutlined />} onClick={() => setModal("cancelar")}>Cancelar evento</Button>);
   }
   if (evento.token_publico) {
-    acciones.push(<Button key="link" type="text" icon={<LinkOutlined />} onClick={copiarLink}>Enlace del cliente</Button>);
+    acciones.push(<Button key="link" type="text" className="boton-enlace" icon={<LinkOutlined />} onClick={copiarLink}>Enlace del cliente</Button>);
   }
 
   const origenes = [

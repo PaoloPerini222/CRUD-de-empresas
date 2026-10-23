@@ -39,8 +39,10 @@ export default function PanelPropuesta({ evento, propuesta, detalles, onCambio }
   const [editando, setEditando] = useState(null); // null | "datos" | "rechazo" | "nuevo" | detalle
 
   const esDueno = permisos.esDuenoDe(evento);
-  const cerrado = ["realizado", "cancelado"].includes(evento.estado);
+  const cerrado = ["realizado", "cancelado", "rechazada"].includes(evento.estado);
   const puedeArmar = esDueno && !cerrado && propuesta?.estado !== "rechazada";
+  // Aceptada por el cliente, el precio queda fijo: solo se reemplaza el proveedor de un servicio.
+  const precioFijo = propuesta?.estado === "aceptada";
 
   // Ejecuta una acción contra el back, avisa el resultado y recarga la ficha.
   const ejecutar = async (accion, exito) => {
@@ -96,7 +98,7 @@ export default function PanelPropuesta({ evento, propuesta, detalles, onCambio }
     if (estado !== "rechazada") acciones.push(<Button key="datos" icon={<EditOutlined />} onClick={() => setEditando("datos")}>Editar datos</Button>);
     if (estado === "borrador") {
       acciones.push(
-        <Popconfirm key="borrar" title="¿Eliminar la propuesta?" description="Solo se puede si no tiene servicios cargados." okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => ejecutar(() => propuestasApi.eliminar(propuesta.id_propuesta), "Propuesta eliminada")}>
+        <Popconfirm key="borrar" title="¿Eliminar la propuesta?" description="Se borran también sus servicios." okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => ejecutar(() => propuestasApi.eliminar(propuesta.id_propuesta), "Propuesta eliminada")}>
           <Button danger type="text" icon={<DeleteOutlined />}>Eliminar</Button>
         </Popconfirm>
       );
@@ -175,14 +177,16 @@ export default function PanelPropuesta({ evento, propuesta, detalles, onCambio }
       render: (_, d) =>
         puedeArmar && (
           <Space size={4} wrap={false}>
-            <Tooltip title="Editar">
+            <Tooltip title={precioFijo ? "Reemplazar proveedor" : "Editar"}>
               <Button type="text" icon={<EditOutlined />} aria-label="Editar" onClick={() => setEditando(d)} />
             </Tooltip>
-            <Popconfirm title="¿Quitar este servicio de la propuesta?" okText="Quitar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => ejecutar(() => api.eliminar(d.id_detalle), "Servicio quitado")}>
-              <Tooltip title="Quitar">
-                <Button type="text" danger icon={<DeleteOutlined />} aria-label="Quitar" />
-              </Tooltip>
-            </Popconfirm>
+            {!precioFijo && (
+              <Popconfirm title="¿Quitar este servicio de la propuesta?" okText="Quitar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => ejecutar(() => api.eliminar(d.id_detalle), "Servicio quitado")}>
+                <Tooltip title="Quitar">
+                  <Button type="text" danger icon={<DeleteOutlined />} aria-label="Quitar" />
+                </Tooltip>
+              </Popconfirm>
+            )}
           </Space>
         ),
     },
@@ -275,11 +279,11 @@ export default function PanelPropuesta({ evento, propuesta, detalles, onCambio }
           {propuesta.aprobado_por ? `${nombrePersona(propuesta.aprobado_por)} · ${fechaCorta(propuesta.fecha_aprobacion)}` : "—"}
         </Descriptions.Item>
         <Descriptions.Item label="Respuesta del cliente">{propuesta.fecha_respuesta ? fechaCorta(propuesta.fecha_respuesta) : "—"}</Descriptions.Item>
-        <Descriptions.Item label="Condiciones acordadas" span={3}>{propuesta.condiciones_acordadas ?? <span className="muted">Pendiente de aclaración</span>}</Descriptions.Item>
-        {propuesta.motivo_rechazo && <Descriptions.Item label="Motivo de rechazo" span={3}>{propuesta.motivo_rechazo}</Descriptions.Item>}
+        <Descriptions.Item label="Condiciones acordadas" span="filled">{propuesta.condiciones_acordadas ?? <span className="muted">Pendiente de aclaración</span>}</Descriptions.Item>
+        {propuesta.motivo_rechazo && <Descriptions.Item label="Motivo de rechazo" span="filled">{propuesta.motivo_rechazo}</Descriptions.Item>}
       </Descriptions>
 
-      {estado === "aceptada" && detalles.some((d) => !d.descartado && d.estado_proveedor !== "confirmado") && (
+      {estado === "aceptada" && !cerrado && detalles.some((d) => !d.descartado && d.estado_proveedor !== "confirmado") && (
         <Alert
           type="warning"
           showIcon
@@ -295,7 +299,7 @@ export default function PanelPropuesta({ evento, propuesta, detalles, onCambio }
       <div className="table-card">
         <div className="table-bar">
           <b>Servicios</b>
-          {puedeArmar && (
+          {puedeArmar && !precioFijo && (
             <Button icon={<PlusOutlined />} onClick={() => setEditando("nuevo")}>
               Agregar servicio
             </Button>

@@ -137,6 +137,15 @@ export const crearCierre = async (req, res) => {
                 `update tarea set estado = 'cancelada' where id_evento = $1 and estado in ('pendiente', 'en_curso')`,
                 [idEvento]
             );
+            // La propuesta que todavia estaba abierta se cierra como rechazada, con el motivo de la cancelacion,
+            // para que no quede "para revisar" ni pendiente. Una propuesta aceptada se conserva como estaba.
+            await cliente.query(
+                `update propuesta
+                 set estado = 'rechazada', fecha_respuesta = coalesce(fecha_respuesta, current_date),
+                     motivo_rechazo = coalesce(motivo_rechazo, left('Evento cancelado: ' || $2, 500))
+                 where id_evento = $1 and estado not in ('aceptada', 'rechazada')`,
+                [idEvento, motivo.valor]
+            );
             await cliente.query(
                 `insert into aviso_proveedor_cancelacion (id_cierre, id_proveedor)
                  select distinct $1::int, d.id_proveedor
